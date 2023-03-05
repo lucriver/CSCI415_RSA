@@ -8,7 +8,7 @@
 
 class BigInt {
   public:
-  static const unsigned long long int BASE = 100000000000000000000;
+  static const unsigned long long int BASE = 10;
 
   // Constructors
   BigInt(): digits(1, 0), negative(false) {}
@@ -30,10 +30,10 @@ class BigInt {
   BigInt operator*(const BigInt& other) const;
 
   // Division Operator
-  //BigInt operator/(const BigInt& other) const;
+  //BigInt operator/(const BigInt& rhs) const;
 
   // Modulus Operator
-  //BigInt operator%(const BigInt& other) const;
+  BigInt operator%(const BigInt& rhs) const;
 
   // Comparison Operators
   bool operator==(const BigInt& other) const;
@@ -174,14 +174,28 @@ BigInt BigInt::operator*(const BigInt& other) const {
   return result;
 }
 
-// --------------
+// division (/) here
 
-// division (/)
-// modulo (%)
-// divide()
-// binary search
+inline
+BigInt BigInt::operator%(const BigInt& rhs) const {
+  if (rhs == BigInt(std::to_string(0))) {
+    std::cerr << "Error: division by zero" << std::endl;
+    return BigInt();
+  }
 
-// -------------
+  BigInt dividend = this->abs(), divisor = rhs.abs(), remainder;
+
+  for (int i = dividend.digits.size() - 1; i >= 0; --i) {
+    remainder = remainder * BigInt(std::to_string(BASE)) + BigInt(std::to_string(dividend.digits[i]));
+    if (divisor < remainder || divisor == remainder) {
+      remainder = remainder - divisor;
+    }
+  }
+
+  remainder.negative = (this->negative != rhs.negative);
+
+  return remainder;
+}
 
 inline
 bool BigInt::operator==(const BigInt& other) const {
