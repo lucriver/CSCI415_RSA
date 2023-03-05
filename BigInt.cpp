@@ -1,262 +1,398 @@
-/* BigInt class definition that allows for RSA-relevant arithemetic operations on very large numbers. */
-/* Authors: Lucas Hirt */
-
 #include <iostream>
-#include <string>
+#include <iomanip>
 #include <vector>
+#include <math.h>
 #include <algorithm>
+#include <unordered_map>
 
-class BigInt {
-  public:
-  static const unsigned long long int BASE = 10;
+const int base = 1000000000;
+const int base_digits = 9;
 
-  // Constructors
-  BigInt(): digits(1, 0), negative(false) {}
-  BigInt(const std::string& num_str);
+struct BigInt {
+  std::vector<int> a;
+  int sign;
 
-  // Copy Constructor
-  BigInt(const BigInt& other);
+  BigInt():
+    sign(1) {
+  }
 
-  // Assignment Operator
-  BigInt& operator=(const BigInt& other);
+  BigInt(long long v) {
+    *this = v;
+  }
 
-  // Addition Operator
-  BigInt operator+(const BigInt& other) const;
+  BigInt(const std::string& s) {
+    read(s);
+  }
 
-  // Subtraction Operator
-  BigInt operator-(const BigInt& other) const;
+  void operator=(const BigInt& v) {
+    sign = v.sign;
+    a = v.a;
+  }
 
-  // Multiplication Operator
-  BigInt operator*(const BigInt& other) const;
+  void operator=(long long v) {
+    sign = 1;
+    if (v < 0)
+      sign = -1, v = -v;
+    for (; v > 0; v = v / base)
+      a.push_back(v % base);
+  }
 
-  // Division Operator
-  //BigInt operator/(const BigInt& rhs) const;
+  BigInt operator+(const BigInt& v) const             //Addition Operation
+  {
+    if (sign == v.sign)
+    {
+      BigInt res = v;
 
-  // Modulus Operator
-  BigInt operator%(const BigInt& rhs) const;
+      for (int i = 0, carry = 0; i < (int)std::max(a.size(), v.a.size()) || carry; ++i)
+      {
+        if (i == (int)res.a.size())
+          res.a.push_back(0);
+        res.a[i] += carry + (i < (int)a.size() ? a[i] : 0);
+        carry = res.a[i] >= base;
+        if (carry)
+          res.a[i] -= base;
+      }
+      return res;
+    }
+    return *this - (-v);
+  }
 
-  // Comparison Operators
-  bool operator==(const BigInt& other) const;
-  bool operator<(const BigInt& other) const;
+  BigInt operator-(const BigInt& v) const             //Subtraction Function
+  {
+    if (sign == v.sign) {
+      if (abs() >= v.abs()) {
+        BigInt res = *this;
+        for (int i = 0, carry = 0; i < (int)v.a.size() || carry; ++i)
+        {
+          res.a[i] -= carry + (i < (int)v.a.size() ? v.a[i] : 0);
+          carry = res.a[i] < 0;
+          if (carry)
+            res.a[i] += base;
+        }
+        res.trim();
+        return res;
+      }
+      return -(v - *this);
+    }
+    return *this + (-v);
+  }
 
-  // Stream Operator
-  friend std::ostream& operator<<(std::ostream& os, const BigInt& num);
+  void operator*=(int v)                      //Multiplication Function
+  {
+    if (v < 0)
+      sign = -sign, v = -v;
+    for (int i = 0, carry = 0; i < (int)a.size() || carry; ++i)
+    {
+      if (i == (int)a.size())
+        a.push_back(0);
+      long long cur = a[i] * (long long)v + carry;
+      carry = (int)(cur / base);
+      a[i] = (int)(cur % base);
+      //asm("divl %%ecx" : "=a"(carry), "=d"(a[i]) : "A"(cur), "c"(base));
+    }
+    trim();
+  }
 
-  private:
-  std::vector<int> digits;
-  bool negative;
+  BigInt operator*(int v) const
+  {
+    BigInt res = *this;
+    res *= v;
+    return res;
+  }
 
-  // Helper functions
-  void removeLeadingZeros();
-  BigInt flipSign();
-  BigInt abs() const;
+  friend std::pair<BigInt, BigInt> divmod(const BigInt& a1, const BigInt& b1)
+  {
+    int norm = base / (b1.a.back() + 1);
+    BigInt a = a1.abs() * norm;
+    BigInt b = b1.abs() * norm;
+    BigInt q, r;
+    q.a.resize(a.a.size());
+
+    for (int i = a.a.size() - 1; i >= 0; i--)
+    {
+      r *= base;
+      r += a.a[i];
+      int s1 = r.a.size() <= b.a.size() ? 0 : r.a[b.a.size()];
+      int s2 = r.a.size() <= b.a.size() - 1 ? 0 : r.a[b.a.size() - 1];
+      int d = ((long long)base * s1 + s2) / b.a.back();
+      r -= b * d;
+      while (r < 0)
+        r += b, --d;
+      q.a[i] = d;
+    }
+
+    q.sign = a1.sign * b1.sign;
+    r.sign = a1.sign;
+    q.trim();
+    r.trim();
+    return std::make_pair(q, r / norm);
+  }
+
+  BigInt operator/(const BigInt& v) const                 //Division Function
+  {
+    return divmod(*this, v).first;
+  }
+
+  BigInt operator%(const BigInt& v) const                 //Modulus Operation
+  {
+    return divmod(*this, v).second;
+  }
+
+  void operator/=(int v)                                  //Shorthand Operation
+  {
+    if (v < 0)
+      sign = -sign, v = -v;
+    for (int i = (int)a.size() - 1, rem = 0; i >= 0; --i)
+    {
+      long long cur = a[i] + rem * (long long)base;
+      a[i] = (int)(cur / v);
+      rem = (int)(cur % v);
+    }
+    trim();
+  }
+
+  BigInt operator/(int v) const
+  {
+    BigInt res = *this;
+    res /= v;
+    return res;
+  }
+
+  int operator%(int v) const
+  {
+    if (v < 0)
+      v = -v;
+    int m = 0;
+    for (int i = a.size() - 1; i >= 0; --i)
+      m = (a[i] + m * (long long)base) % v;
+    return m * sign;
+  }
+
+  void operator+=(const BigInt& v)
+  {
+    *this = *this + v;
+  }
+  void operator-=(const BigInt& v)
+  {
+    *this = *this - v;
+  }
+  void operator*=(const BigInt& v)
+  {
+    *this = *this * v;
+  }
+  void operator/=(const BigInt& v)
+  {
+    *this = *this / v;
+  }
+
+  bool operator<(const BigInt& v) const
+  {
+    if (sign != v.sign)
+      return sign < v.sign;
+    if (a.size() != v.a.size())
+      return a.size() * sign < v.a.size() * v.sign;
+    for (int i = a.size() - 1; i >= 0; i--)
+      if (a[i] != v.a[i])
+        return a[i] * sign < v.a[i] * sign;
+    return false;
+  }
+
+  bool operator>(const BigInt& v) const
+  {
+    return v < *this;
+  }
+  bool operator<=(const BigInt& v) const
+  {
+    return !(v < *this);
+  }
+  bool operator>=(const BigInt& v) const
+  {
+    return !(*this < v);
+  }
+  bool operator==(const BigInt& v) const
+  {
+    return !(*this < v) && !(v < *this);
+  }
+  bool operator!=(const BigInt& v) const
+  {
+    return *this < v || v < *this;
+  }
+
+  void trim()
+  {
+    while (!a.empty() && !a.back())
+      a.pop_back();
+    if (a.empty())
+      sign = 1;
+  }
+
+  bool isZero() const
+  {
+    return a.empty() || (a.size() == 1 && !a[0]);
+  }
+
+  BigInt operator-() const
+  {
+    BigInt res = *this;
+    res.sign = -sign;
+    return res;
+  }
+
+  BigInt abs() const
+  {
+    BigInt res = *this;
+    res.sign *= res.sign;
+    return res;
+  }
+
+  long long longValue() const
+  {
+    long long res = 0;
+    for (int i = a.size() - 1; i >= 0; i--)
+      res = res * base + a[i];
+    return res * sign;
+  }
+
+  friend BigInt gcd(const BigInt& a, const BigInt& b)             //GCD Function(Euler Algorithm)
+  {
+    return b.isZero() ? a : gcd(b, a % b);
+  }
+  friend BigInt lcm(const BigInt& a, const BigInt& b)             //Simple LCM Operation
+  {
+    return a / gcd(a, b) * b;
+  }
+
+  void read(const std::string& s)                                  //Reading a Big Integer
+  {
+    sign = 1;
+    a.clear();
+    int pos = 0;
+    while (pos < (int)s.size() && (s[pos] == '-' || s[pos] == '+'))
+    {
+      if (s[pos] == '-')
+        sign = -sign;
+      ++pos;
+    }
+    for (int i = s.size() - 1; i >= pos; i -= base_digits)
+    {
+      int x = 0;
+      for (int j = std::max(pos, i - base_digits + 1); j <= i; j++)
+        x = x * 10 + s[j] - '0';
+      a.push_back(x);
+    }
+    trim();
+  }
+
+  friend std::istream& operator>>(std::istream& stream, BigInt& v)
+  {
+    std::string s;
+    stream >> s;
+    v.read(s);
+    return stream;
+  }
+
+  friend std::ostream& operator<<(std::ostream& stream, const BigInt& v)
+  {
+    if (v.sign == -1)
+      stream << '-';
+    stream << (v.a.empty() ? 0 : v.a.back());
+    for (int i = (int)v.a.size() - 2; i >= 0; --i)
+      stream << std::setw(base_digits) << std::setfill('0') << v.a[i];
+    return stream;
+  }
+
+  static std::vector<int> convert_base(const std::vector<int>& a, int old_digits, int new_digits)
+  {
+    std::vector<long long> p(std::max(old_digits, new_digits) + 1);
+    p[0] = 1;
+    for (int i = 1; i < (int)p.size(); i++)
+      p[i] = p[i - 1] * 10;
+    std::vector<int> res;
+    long long cur = 0;
+    int cur_digits = 0;
+    for (int i = 0; i < (int)a.size(); i++)
+    {
+      cur += a[i] * p[cur_digits];
+      cur_digits += old_digits;
+      while (cur_digits >= new_digits)
+      {
+        res.push_back(int(cur % p[new_digits]));
+        cur /= p[new_digits];
+        cur_digits -= new_digits;
+      }
+    }
+    res.push_back((int)cur);
+    while (!res.empty() && !res.back())
+      res.pop_back();
+    return res;
+  }
+
+  typedef std::vector<long long> vll;
+
+  static vll karatsubaMultiply(const vll& a, const vll& b)        //Multiplication using Karatsuba Algorithm
+  {
+    int n = a.size();
+    vll res(n + n);
+    if (n <= 32)
+    {
+      for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++)
+          res[i + j] += a[i] * b[j];
+      return res;
+    }
+
+    int k = n >> 1;
+    vll a1(a.begin(), a.begin() + k);
+    vll a2(a.begin() + k, a.end());
+    vll b1(b.begin(), b.begin() + k);
+    vll b2(b.begin() + k, b.end());
+
+    vll a1b1 = karatsubaMultiply(a1, b1);
+    vll a2b2 = karatsubaMultiply(a2, b2);
+
+    for (int i = 0; i < k; i++)
+      a2[i] += a1[i];
+    for (int i = 0; i < k; i++)
+      b2[i] += b1[i];
+
+    vll r = karatsubaMultiply(a2, b2);
+    for (int i = 0; i < (int)a1b1.size(); i++)
+      r[i] -= a1b1[i];
+    for (int i = 0; i < (int)a2b2.size(); i++)
+      r[i] -= a2b2[i];
+
+    for (int i = 0; i < (int)r.size(); i++)
+      res[i + k] += r[i];
+    for (int i = 0; i < (int)a1b1.size(); i++)
+      res[i] += a1b1[i];
+    for (int i = 0; i < (int)a2b2.size(); i++)
+      res[i + n] += a2b2[i];
+    return res;
+  }
+
+  BigInt operator*(const BigInt& v) const
+  {
+    std::vector<int> a6 = convert_base(this->a, base_digits, 6);
+    std::vector<int> b6 = convert_base(v.a, base_digits, 6);
+    vll a(a6.begin(), a6.end());
+    vll b(b6.begin(), b6.end());
+    while (a.size() < b.size())
+      a.push_back(0);
+    while (b.size() < a.size())
+      b.push_back(0);
+    while (a.size() & (a.size() - 1))
+      a.push_back(0), b.push_back(0);
+    vll c = karatsubaMultiply(a, b);
+    BigInt res;
+    res.sign = sign * v.sign;
+    for (int i = 0, carry = 0; i < (int)c.size(); i++)
+    {
+      long long cur = c[i] + carry;
+      res.a.push_back((int)(cur % 1000000));
+      carry = (int)(cur / 1000000);
+    }
+    res.a = convert_base(res.a, 6, base_digits);
+    res.trim();
+    return res;
+  }
 };
-
-// --- public methods ---
-
-inline
-BigInt::BigInt(const std::string& num_str) {
-  std::string str = num_str;
-  if (str[0] == '-') {
-    negative = true;
-    str = str.substr(1);
-  }
-  else {
-    negative = false;
-  }
-
-  for (int i = str.length() - 1; i >= 0; i--) {
-    digits.push_back(str[i] - '0');
-  }
-
-  removeLeadingZeros();
-}
-
-inline
-BigInt::BigInt(const BigInt& other) {
-  digits = other.digits;
-  negative = other.negative;
-}
-
-inline
-BigInt& BigInt::operator=(const BigInt& other) {
-  if (this == &other) {
-    return *this;
-  }
-  digits = other.digits;
-  negative = other.negative;
-  return *this;
-}
-
-inline
-BigInt BigInt::operator+(const BigInt& other) const {
-  if (negative != other.negative) {
-    return *this - other.abs();
-  }
-
-  BigInt result;
-  result.digits.clear();
-  int carry = 0;
-  int max_size = std::max(digits.size(), other.digits.size());
-
-  for (int i = 0; i < max_size || carry; i++) {
-    int sum = carry;
-    if (i < digits.size()) {
-      sum += digits[i];
-    }
-    if (i < other.digits.size()) {
-      sum += other.digits[i];
-    }
-    result.digits.push_back(sum % 10);
-    carry = sum / 10;
-  }
-
-  result.negative = negative;
-  result.removeLeadingZeros();
-  return result;
-}
-
-inline
-BigInt BigInt::operator-(const BigInt& other) const {
-  if (negative != other.negative) {
-    return *this + other.abs();
-  }
-
-  if (abs() < other.abs()) {
-    return (other - *this).flipSign();
-  }
-
-  BigInt result;
-  result.digits.clear();
-  int borrow = 0;
-  int max_size = std::max(digits.size(), other.digits.size());
-
-  for (int i = 0; i < max_size || borrow; i++) {
-    int diff = borrow;
-    if (i < digits.size()) {
-      diff += digits[i];
-    }
-    if (i < other.digits.size()) {
-      diff -= other.digits[i];
-    }
-    if (diff < 0) {
-      diff += 10;
-      borrow = -1;
-    }
-    else {
-      borrow = 0;
-    }
-    result.digits.push_back(diff);
-  }
-
-  result.negative = negative;
-  result.removeLeadingZeros();
-  return result;
-}
-
-inline
-BigInt BigInt::operator*(const BigInt& other) const {
-  BigInt result;
-  result.digits.assign(digits.size() + other.digits.size(), 0);
-  result.negative = negative != other.negative;
-
-  for (int i = 0; i < digits.size(); i++) {
-    int carry = 0;
-    for (int j = 0; j < other.digits.size() || carry; j++) {
-      long long prod = result.digits[i + j] +
-        static_cast<long long>(digits[i]) * (j < other.digits.size() ? other.digits[j] : 0) + carry;
-      result.digits[i + j] = static_cast<int>(prod % 10);
-      carry = static_cast<int>(prod / 10);
-    }
-  }
-
-  result.removeLeadingZeros();
-  return result;
-}
-
-// division (/) here
-
-inline
-BigInt BigInt::operator%(const BigInt& rhs) const {
-  if (rhs == BigInt(std::to_string(0))) {
-    std::cerr << "Error: division by zero" << std::endl;
-    return BigInt();
-  }
-
-  BigInt dividend = this->abs(), divisor = rhs.abs(), remainder;
-
-  for (int i = dividend.digits.size() - 1; i >= 0; --i) {
-    remainder = remainder * BigInt(std::to_string(BASE)) + BigInt(std::to_string(dividend.digits[i]));
-    if (divisor < remainder || divisor == remainder) {
-      remainder = remainder - divisor;
-    }
-  }
-
-  remainder.negative = (this->negative != rhs.negative);
-
-  return remainder;
-}
-
-inline
-bool BigInt::operator==(const BigInt& other) const {
-  return negative == other.negative && digits == other.digits;
-}
-
-inline
-bool BigInt::operator<(const BigInt& other) const {
-  if (negative != other.negative) {
-    return negative;
-  }
-
-  if (digits.size() != other.digits.size()) {
-    return (digits.size() < other.digits.size()) ^ negative;
-  }
-
-  for (int i = digits.size() - 1; i >= 0; i--) {
-    if (digits[i] != other.digits[i]) {
-      return (digits[i] < other.digits[i]) ^ negative;
-    }
-  }
-
-  return false;
-}
-
-inline
-std::ostream& operator<<(std::ostream& os, const BigInt& num) {
-  if (num.negative) {
-    os << '-';
-  }
-  for (int i = num.digits.size() - 1; i >= 0; i--) {
-    os << num.digits[i];
-  }
-  return os;
-}
-
-
-
-// --- private methods ---
-
-inline
-BigInt BigInt::flipSign() {
-  BigInt result(*this);
-  result.negative = !negative;
-  return result;
-}
-
-inline
-void BigInt::removeLeadingZeros() {
-  while (digits.size() > 1 && digits.back() == 0) {
-    digits.pop_back();
-  }
-
-  if (digits.size() == 1 && digits[0] == 0) {
-    negative = false;
-  }
-}
-
-inline
-BigInt BigInt::abs() const {
-  BigInt result(*this);
-  result.negative = false;
-  return result;
-}

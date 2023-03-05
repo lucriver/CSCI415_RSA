@@ -4,8 +4,8 @@
 #include "BigInt.cpp"
 
 int main() {
-  std::string p = "302663234051331038391380346924549362645708778812240";
-  std::string q = "584174259524812845505854918801946430109501235279851";
+  std::string p = "8086164800307799455819351967011177666191433164738525272320237134651610279573873606606310942657291329";
+  std::string q = "71805181950095383895661116778076595983476969841596584002868398296678459126834594575951122475032232675";
   BigInt x(p);
   BigInt y(q);
   BigInt add = x + y;
@@ -13,6 +13,12 @@ int main() {
   BigInt sub_1 = y - x;
   BigInt mult = x * y;
   BigInt mod_0 = y % x;
+  BigInt mod_1 = x % y;
+  std::cout << add << std::endl;
+  std::cout << mult << std::endl;
+  std::cout << sub_0 << std::endl;
+  std::cout << sub_1 << std::endl;
   std::cout << mod_0 << std::endl;
+  std::cout << mod_1 << std::endl;
   return 0;
 }
