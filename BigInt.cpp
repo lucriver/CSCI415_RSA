@@ -37,14 +37,11 @@ struct BigInt {
       a.push_back(v % base);
   }
 
-  BigInt operator+(const BigInt& v) const             //Addition Operation
-  {
-    if (sign == v.sign)
-    {
+  BigInt operator+(const BigInt& v) const {
+    if (sign == v.sign) {
       BigInt res = v;
 
-      for (int i = 0, carry = 0; i < (int)std::max(a.size(), v.a.size()) || carry; ++i)
-      {
+      for (int i = 0, carry = 0; i < (int)std::max(a.size(), v.a.size()) || carry; ++i) {
         if (i == (int)res.a.size())
           res.a.push_back(0);
         res.a[i] += carry + (i < (int)a.size() ? a[i] : 0);
@@ -57,8 +54,7 @@ struct BigInt {
     return *this - (-v);
   }
 
-  BigInt operator-(const BigInt& v) const             //Subtraction Function
-  {
+  BigInt operator-(const BigInt& v) const {
     if (sign == v.sign) {
       if (abs() >= v.abs()) {
         BigInt res = *this;
@@ -77,12 +73,10 @@ struct BigInt {
     return *this + (-v);
   }
 
-  void operator*=(int v)                      //Multiplication Function
-  {
+  void operator*=(int v) {
     if (v < 0)
       sign = -sign, v = -v;
-    for (int i = 0, carry = 0; i < (int)a.size() || carry; ++i)
-    {
+    for (int i = 0, carry = 0; i < (int)a.size() || carry; ++i) {
       if (i == (int)a.size())
         a.push_back(0);
       long long cur = a[i] * (long long)v + carry;
@@ -93,23 +87,20 @@ struct BigInt {
     trim();
   }
 
-  BigInt operator*(int v) const
-  {
+  BigInt operator*(int v) const {
     BigInt res = *this;
     res *= v;
     return res;
   }
 
-  friend std::pair<BigInt, BigInt> divmod(const BigInt& a1, const BigInt& b1)
-  {
+  friend std::pair<BigInt, BigInt> divmod(const BigInt& a1, const BigInt& b1) {
     int norm = base / (b1.a.back() + 1);
     BigInt a = a1.abs() * norm;
     BigInt b = b1.abs() * norm;
     BigInt q, r;
     q.a.resize(a.a.size());
 
-    for (int i = a.a.size() - 1; i >= 0; i--)
-    {
+    for (int i = a.a.size() - 1; i >= 0; i--) {
       r *= base;
       r += a.a[i];
       int s1 = r.a.size() <= b.a.size() ? 0 : r.a[b.a.size()];
@@ -128,22 +119,18 @@ struct BigInt {
     return std::make_pair(q, r / norm);
   }
 
-  BigInt operator/(const BigInt& v) const                 //Division Function
-  {
+  BigInt operator/(const BigInt& v) const {
     return divmod(*this, v).first;
   }
 
-  BigInt operator%(const BigInt& v) const                 //Modulus Operation
-  {
+  BigInt operator%(const BigInt& v) const {
     return divmod(*this, v).second;
   }
 
-  void operator/=(int v)                                  //Shorthand Operation
-  {
+  void operator/=(int v) {
     if (v < 0)
       sign = -sign, v = -v;
-    for (int i = (int)a.size() - 1, rem = 0; i >= 0; --i)
-    {
+    for (int i = (int)a.size() - 1, rem = 0; i >= 0; --i) {
       long long cur = a[i] + rem * (long long)base;
       a[i] = (int)(cur / v);
       rem = (int)(cur % v);
@@ -151,15 +138,13 @@ struct BigInt {
     trim();
   }
 
-  BigInt operator/(int v) const
-  {
+  BigInt operator/(int v) const {
     BigInt res = *this;
     res /= v;
     return res;
   }
 
-  int operator%(int v) const
-  {
+  int operator%(int v) const {
     if (v < 0)
       v = -v;
     int m = 0;
@@ -168,25 +153,20 @@ struct BigInt {
     return m * sign;
   }
 
-  void operator+=(const BigInt& v)
-  {
+  void operator+=(const BigInt& v) {
     *this = *this + v;
   }
-  void operator-=(const BigInt& v)
-  {
+  void operator-=(const BigInt& v) {
     *this = *this - v;
   }
-  void operator*=(const BigInt& v)
-  {
+  void operator*=(const BigInt& v) {
     *this = *this * v;
   }
-  void operator/=(const BigInt& v)
-  {
+  void operator/=(const BigInt& v) {
     *this = *this / v;
   }
 
-  bool operator<(const BigInt& v) const
-  {
+  bool operator<(const BigInt& v) const {
     if (sign != v.sign)
       return sign < v.sign;
     if (a.size() != v.a.size())
@@ -197,68 +177,56 @@ struct BigInt {
     return false;
   }
 
-  bool operator>(const BigInt& v) const
-  {
+  bool operator>(const BigInt& v) const {
     return v < *this;
   }
-  bool operator<=(const BigInt& v) const
-  {
+  bool operator<=(const BigInt& v) const {
     return !(v < *this);
   }
-  bool operator>=(const BigInt& v) const
-  {
+  bool operator>=(const BigInt& v) const {
     return !(*this < v);
   }
-  bool operator==(const BigInt& v) const
-  {
+  bool operator==(const BigInt& v) const {
     return !(*this < v) && !(v < *this);
   }
-  bool operator!=(const BigInt& v) const
-  {
+  bool operator!=(const BigInt& v) const {
     return *this < v || v < *this;
   }
 
-  void trim()
-  {
+  void trim() {
     while (!a.empty() && !a.back())
       a.pop_back();
     if (a.empty())
       sign = 1;
   }
 
-  bool isZero() const
-  {
+  bool isZero() const {
     return a.empty() || (a.size() == 1 && !a[0]);
   }
 
-  BigInt operator-() const
-  {
+  BigInt operator-() const {
     BigInt res = *this;
     res.sign = -sign;
     return res;
   }
 
-  BigInt abs() const
-  {
+  BigInt abs() const {
     BigInt res = *this;
     res.sign *= res.sign;
     return res;
   }
 
-  long long longValue() const
-  {
+  long long longValue() const {
     long long res = 0;
     for (int i = a.size() - 1; i >= 0; i--)
       res = res * base + a[i];
     return res * sign;
   }
 
-  friend BigInt gcd(const BigInt& a, const BigInt& b)             //GCD Function(Euler Algorithm)
-  {
+  friend BigInt gcd(const BigInt& a, const BigInt& b) {
     return b.isZero() ? a : gcd(b, a % b);
   }
-  friend BigInt lcm(const BigInt& a, const BigInt& b)             //Simple LCM Operation
-  {
+  friend BigInt lcm(const BigInt& a, const BigInt& b) {
     return a / gcd(a, b) * b;
   }
 
@@ -267,14 +235,12 @@ struct BigInt {
     sign = 1;
     a.clear();
     int pos = 0;
-    while (pos < (int)s.size() && (s[pos] == '-' || s[pos] == '+'))
-    {
+    while (pos < (int)s.size() && (s[pos] == '-' || s[pos] == '+')) {
       if (s[pos] == '-')
         sign = -sign;
       ++pos;
     }
-    for (int i = s.size() - 1; i >= pos; i -= base_digits)
-    {
+    for (int i = s.size() - 1; i >= pos; i -= base_digits) {
       int x = 0;
       for (int j = std::max(pos, i - base_digits + 1); j <= i; j++)
         x = x * 10 + s[j] - '0';
@@ -283,16 +249,14 @@ struct BigInt {
     trim();
   }
 
-  friend std::istream& operator>>(std::istream& stream, BigInt& v)
-  {
+  friend std::istream& operator>>(std::istream& stream, BigInt& v) {
     std::string s;
     stream >> s;
     v.read(s);
     return stream;
   }
 
-  friend std::ostream& operator<<(std::ostream& stream, const BigInt& v)
-  {
+  friend std::ostream& operator<<(std::ostream& stream, const BigInt& v) {
     if (v.sign == -1)
       stream << '-';
     stream << (v.a.empty() ? 0 : v.a.back());
@@ -301,8 +265,7 @@ struct BigInt {
     return stream;
   }
 
-  static std::vector<int> convert_base(const std::vector<int>& a, int old_digits, int new_digits)
-  {
+  static std::vector<int> convert_base(const std::vector<int>& a, int old_digits, int new_digits) {
     std::vector<long long> p(std::max(old_digits, new_digits) + 1);
     p[0] = 1;
     for (int i = 1; i < (int)p.size(); i++)
@@ -310,12 +273,10 @@ struct BigInt {
     std::vector<int> res;
     long long cur = 0;
     int cur_digits = 0;
-    for (int i = 0; i < (int)a.size(); i++)
-    {
+    for (int i = 0; i < (int)a.size(); i++) {
       cur += a[i] * p[cur_digits];
       cur_digits += old_digits;
-      while (cur_digits >= new_digits)
-      {
+      while (cur_digits >= new_digits) {
         res.push_back(int(cur % p[new_digits]));
         cur /= p[new_digits];
         cur_digits -= new_digits;
@@ -329,12 +290,10 @@ struct BigInt {
 
   typedef std::vector<long long> vll;
 
-  static vll karatsubaMultiply(const vll& a, const vll& b)        //Multiplication using Karatsuba Algorithm
-  {
+  static vll karatsubaMultiply(const vll& a, const vll& b) {
     int n = a.size();
     vll res(n + n);
-    if (n <= 32)
-    {
+    if (n <= 32) {
       for (int i = 0; i < n; i++)
         for (int j = 0; j < n; j++)
           res[i + j] += a[i] * b[j];
@@ -370,8 +329,7 @@ struct BigInt {
     return res;
   }
 
-  BigInt operator*(const BigInt& v) const
-  {
+  BigInt operator*(const BigInt& v) const {
     std::vector<int> a6 = convert_base(this->a, base_digits, 6);
     std::vector<int> b6 = convert_base(v.a, base_digits, 6);
     vll a(a6.begin(), a6.end());
@@ -385,8 +343,7 @@ struct BigInt {
     vll c = karatsubaMultiply(a, b);
     BigInt res;
     res.sign = sign * v.sign;
-    for (int i = 0, carry = 0; i < (int)c.size(); i++)
-    {
+    for (int i = 0, carry = 0; i < (int)c.size(); i++) {
       long long cur = c[i] + carry;
       res.a.push_back((int)(cur % 1000000));
       carry = (int)(cur / 1000000);
