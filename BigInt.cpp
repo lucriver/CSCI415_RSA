@@ -58,8 +58,7 @@ struct BigInt {
     if (sign == v.sign) {
       if (abs() >= v.abs()) {
         BigInt res = *this;
-        for (int i = 0, carry = 0; i < (int)v.a.size() || carry; ++i)
-        {
+        for (int i = 0, carry = 0; i < (int)v.a.size() || carry; ++i) {
           res.a[i] -= carry + (i < (int)v.a.size() ? v.a[i] : 0);
           carry = res.a[i] < 0;
           if (carry)
@@ -82,7 +81,6 @@ struct BigInt {
       long long cur = a[i] * (long long)v + carry;
       carry = (int)(cur / base);
       a[i] = (int)(cur % base);
-      //asm("divl %%ecx" : "=a"(carry), "=d"(a[i]) : "A"(cur), "c"(base));
     }
     trim();
   }
@@ -352,4 +350,17 @@ struct BigInt {
     res.trim();
     return res;
   }
+
+  bool isEven() {
+    if ((*this) == BigInt(0))
+      return false;
+    return a[0] % 2 == 0;
+  }
+
+  bool isOdd() {
+    if ((*this) == BigInt(0))
+      return false;
+    return a[0] % 2 == 1;
+  }
+
 };
