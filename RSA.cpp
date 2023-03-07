@@ -8,7 +8,6 @@
 
 #include "BigInt.cpp"
 
-
 // info: this class allows for the implementation of an RSA crypto-system
 class RSA {
   static const int MIN_DIGITS = 50; // Minimum number of digits for RSA primes
