@@ -8,21 +8,29 @@
 const int base = 1000000000;
 const int base_digits = 9;
 
+// info: this struct allows one to directly work with very large numbers 
+//       (greater than 20 digits) when writing a C++ program.
 struct BigInt {
-  std::vector<int> a;
+  std::vector<int> a;  // holds our very large number
   int sign;
 
   BigInt():
     sign(1) {
   }
 
+  // info: get a BigInt struct variable
+  // params: number that is less than or equal to 20 decimal digits
   BigInt(long long v) {
     *this = v;
   }
 
+  // info: get a BigInt struct variable
+  // params: a string representing some number, can be many digits long (over 100 digits)
   BigInt(const std::string& s) {
     read(s);
   }
+
+  // ******************** Operator overloading methods ********************
 
   void operator=(const BigInt& v) {
     sign = v.sign;
@@ -89,32 +97,6 @@ struct BigInt {
     BigInt res = *this;
     res *= v;
     return res;
-  }
-
-  friend std::pair<BigInt, BigInt> divmod(const BigInt& a1, const BigInt& b1) {
-    int norm = base / (b1.a.back() + 1);
-    BigInt a = a1.abs() * norm;
-    BigInt b = b1.abs() * norm;
-    BigInt q, r;
-    q.a.resize(a.a.size());
-
-    for (int i = a.a.size() - 1; i >= 0; i--) {
-      r *= base;
-      r += a.a[i];
-      int s1 = r.a.size() <= b.a.size() ? 0 : r.a[b.a.size()];
-      int s2 = r.a.size() <= b.a.size() - 1 ? 0 : r.a[b.a.size() - 1];
-      int d = ((long long)base * s1 + s2) / b.a.back();
-      r -= b * d;
-      while (r < 0)
-        r += b, --d;
-      q.a[i] = d;
-    }
-
-    q.sign = a1.sign * b1.sign;
-    r.sign = a1.sign;
-    q.trim();
-    r.trim();
-    return std::make_pair(q, r / norm);
   }
 
   BigInt operator/(const BigInt& v) const {
@@ -191,6 +173,83 @@ struct BigInt {
     return *this < v || v < *this;
   }
 
+  BigInt operator-() const {
+    BigInt res = *this;
+    res.sign = -sign;
+    return res;
+  }
+
+  friend std::istream& operator>>(std::istream& stream, BigInt& v) {
+    std::string s;
+    stream >> s;
+    v.read(s);
+    return stream;
+  }
+
+  friend std::ostream& operator<<(std::ostream& stream, const BigInt& v) {
+    if (v.sign == -1)
+      stream << '-';
+    stream << (v.a.empty() ? 0 : v.a.back());
+    for (int i = (int)v.a.size() - 2; i >= 0; --i)
+      stream << std::setw(base_digits) << std::setfill('0') << v.a[i];
+    return stream;
+  }
+
+  BigInt operator*(const BigInt& v) const {
+    std::vector<int> a6 = convert_base(this->a, base_digits, 6);
+    std::vector<int> b6 = convert_base(v.a, base_digits, 6);
+    vll a(a6.begin(), a6.end());
+    vll b(b6.begin(), b6.end());
+    while (a.size() < b.size())
+      a.push_back(0);
+    while (b.size() < a.size())
+      b.push_back(0);
+    while (a.size() & (a.size() - 1))
+      a.push_back(0), b.push_back(0);
+    vll c = karatsubaMultiply(a, b);
+    BigInt res;
+    res.sign = sign * v.sign;
+    for (int i = 0, carry = 0; i < (int)c.size(); i++) {
+      long long cur = c[i] + carry;
+      res.a.push_back((int)(cur % 1000000));
+      carry = (int)(cur / 1000000);
+    }
+    res.a = convert_base(res.a, 6, base_digits);
+    res.trim();
+    return res;
+  }
+
+  // ****************************************
+
+
+  // ******************** Utility methods ********************
+
+  friend std::pair<BigInt, BigInt> divmod(const BigInt& a1, const BigInt& b1) {
+    int norm = base / (b1.a.back() + 1);
+    BigInt a = a1.abs() * norm;
+    BigInt b = b1.abs() * norm;
+    BigInt q, r;
+    q.a.resize(a.a.size());
+
+    for (int i = a.a.size() - 1; i >= 0; i--) {
+      r *= base;
+      r += a.a[i];
+      int s1 = r.a.size() <= b.a.size() ? 0 : r.a[b.a.size()];
+      int s2 = r.a.size() <= b.a.size() - 1 ? 0 : r.a[b.a.size() - 1];
+      int d = ((long long)base * s1 + s2) / b.a.back();
+      r -= b * d;
+      while (r < 0)
+        r += b, --d;
+      q.a[i] = d;
+    }
+
+    q.sign = a1.sign * b1.sign;
+    r.sign = a1.sign;
+    q.trim();
+    r.trim();
+    return std::make_pair(q, r / norm);
+  }
+
   void trim() {
     while (!a.empty() && !a.back())
       a.pop_back();
@@ -200,12 +259,6 @@ struct BigInt {
 
   bool isZero() const {
     return a.empty() || (a.size() == 1 && !a[0]);
-  }
-
-  BigInt operator-() const {
-    BigInt res = *this;
-    res.sign = -sign;
-    return res;
   }
 
   BigInt abs() const {
@@ -228,7 +281,7 @@ struct BigInt {
     return a / gcd(a, b) * b;
   }
 
-  void read(const std::string& s)                                  //Reading a Big Integer
+  void read(const std::string& s)                                 
   {
     sign = 1;
     a.clear();
@@ -245,22 +298,6 @@ struct BigInt {
       a.push_back(x);
     }
     trim();
-  }
-
-  friend std::istream& operator>>(std::istream& stream, BigInt& v) {
-    std::string s;
-    stream >> s;
-    v.read(s);
-    return stream;
-  }
-
-  friend std::ostream& operator<<(std::ostream& stream, const BigInt& v) {
-    if (v.sign == -1)
-      stream << '-';
-    stream << (v.a.empty() ? 0 : v.a.back());
-    for (int i = (int)v.a.size() - 2; i >= 0; --i)
-      stream << std::setw(base_digits) << std::setfill('0') << v.a[i];
-    return stream;
   }
 
   static std::vector<int> convert_base(const std::vector<int>& a, int old_digits, int new_digits) {
@@ -327,30 +364,6 @@ struct BigInt {
     return res;
   }
 
-  BigInt operator*(const BigInt& v) const {
-    std::vector<int> a6 = convert_base(this->a, base_digits, 6);
-    std::vector<int> b6 = convert_base(v.a, base_digits, 6);
-    vll a(a6.begin(), a6.end());
-    vll b(b6.begin(), b6.end());
-    while (a.size() < b.size())
-      a.push_back(0);
-    while (b.size() < a.size())
-      b.push_back(0);
-    while (a.size() & (a.size() - 1))
-      a.push_back(0), b.push_back(0);
-    vll c = karatsubaMultiply(a, b);
-    BigInt res;
-    res.sign = sign * v.sign;
-    for (int i = 0, carry = 0; i < (int)c.size(); i++) {
-      long long cur = c[i] + carry;
-      res.a.push_back((int)(cur % 1000000));
-      carry = (int)(cur / 1000000);
-    }
-    res.a = convert_base(res.a, 6, base_digits);
-    res.trim();
-    return res;
-  }
-
   bool isEven() {
     if ((*this) == BigInt(0))
       return false;
@@ -364,3 +377,5 @@ struct BigInt {
   }
 
 };
+
+  // ****************************************
