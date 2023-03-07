@@ -5,11 +5,10 @@
 
 int main() {
   // specify how many digits our RSA primes should be
-  int prime_digits = 100;
+  int prime_digits = 50;
 
   // initialize the RSA crypto-system
-  RSA rsa_system(prime_digits);
-
+  RSA rsa_system_0(prime_digits);
   return 0;
 }
 

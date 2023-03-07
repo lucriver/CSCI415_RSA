@@ -11,7 +11,7 @@
 
 // info: this class allows for the implementation of an RSA crypto-system
 class RSA {
-  static const int MIN_DIGITS = 100; // Minimum number of digits for RSA primes
+  static const int MIN_DIGITS = 50; // Minimum number of digits for RSA primes
   static const int MAX_DIGITS = 200; // Max number of digits for RSA primes
 
 public:
@@ -20,17 +20,33 @@ public:
   RSA(const int);
   ~RSA();
 
+  // ---- debugging function
+  void debug();
+
 private:
-  BigInt p, q, n, modulo, pub_key, priv_key;
+  BigInt p, q, n, modulo, e, d;
 
   BigInt generateRandomPrime(int);
   BigInt randomBigInt(int);
   BigInt randomBigIntInRange(BigInt, BigInt);
   BigInt binPow(BigInt, BigInt, BigInt);
+  BigInt euclidsExtended(const BigInt, const BigInt);
   bool isPrimeMRT(BigInt, int);
   bool MRT(BigInt, BigInt);
 
 };
+
+
+// ---- debugging function, use it when needed. don't forget to delete
+inline
+void RSA::debug() {
+  std::cout << "p: " << p << std::endl;
+  std::cout << "q: " << q << std::endl;
+  std::cout << "n: " << n << std::endl;
+  std::cout << "modulo: " << modulo << std::endl;
+  std::cout << "e: " << e << std::endl;
+  std::cout << "d: " << d << std::endl;
+}
 
 
 // ******************** Public methods ********************
@@ -40,7 +56,7 @@ private:
 // returns: RSA class members are assigned values such that encryption and decryption can take place.
 inline
 RSA::RSA(const int decimal_digits_count) {
-  std::cout << "Initializing RSA crypto-system." << std::endl;
+  std::cout << "Initializing RSA crypto-system..." << std::endl;
   // verify number of digits for primes p and q are valid
   if (decimal_digits_count < MIN_DIGITS || decimal_digits_count > MAX_DIGITS) {
     std::string s = "Invalid number of decimal digits. " + std::to_string(MIN_DIGITS) + " <= x <= " + std::to_string(MAX_DIGITS);
@@ -48,8 +64,10 @@ RSA::RSA(const int decimal_digits_count) {
   }
 
   // define primes p and q that were verified with the miller-rabin method
+  std::cout << "Initializing system primes..." << std::endl;
   p = generateRandomPrime(decimal_digits_count);
   q = generateRandomPrime(decimal_digits_count);
+  std::cout << "System primes initialized." << std::endl;
 
   // define n
   n = BigInt(p * q);
@@ -58,11 +76,24 @@ RSA::RSA(const int decimal_digits_count) {
   modulo = BigInt((p - BigInt(1)) * (q - BigInt(1)));
 
   // define public key (or alternatively e in textbook)
-  // define e
+  for (int i = 2; BigInt(i) < modulo; i++) {
+    BigInt res = gcd(BigInt(i), modulo);
+    if (res == BigInt(1)) {
+      e = BigInt(i);
+      break;
+    }
+  }
+  if (e <= BigInt(1) || e >= modulo) {
+    throw std::out_of_range("Euler totient is of incorrect value.");
+  }
 
   // define private key (or alternatively d in textbook)
-  // define d
+  d = euclidsExtended(e,modulo);
+
+  debug();
 }
+
+
 
 inline
 RSA::~RSA() {}
@@ -92,27 +123,29 @@ BigInt RSA::generateRandomPrime(int decimal_digits_count) {
   rand_num += "1";
 
   // use miller-rabin to determine if rand_num is prime
-  std::cout << "Looking for primes." << std::endl;
+  std::cout << "Looking for primes..." << std::endl;
   int rounds = 40;
   int counter = 0;
+  int reset_interval = 500; // interval by which shuffling prime candidate should be aborted
   int max_evals = 5000;
   while (!isPrimeMRT(BigInt(rand_num), rounds)) { // while prime candidate is not prime by miller-rabin method
     counter++;
     std::cout << "Prime candidates evaluated: " << counter;
-    if (counter % 1000 == 0) {               
+    if (counter % reset_interval == 0) {
       if (counter == max_evals) {               // if we have evaluated too many potential primes, throw exception
         throw std::runtime_error("Timeout on prime number generation. Please try again.");
-      } else {
-        std::cout << std::endl << "Aborting shuffle and resetting prime candidate." << std::endl;
+      }
+      else {
         for (int i = 1; i < decimal_digits_count - 1; i++) {
           std::string rand_digit = std::to_string(dist(rng)); // get 1-digit rand between 0-9
           rand_num[i] = rand_digit[0];
         }
-        continue;
       }
     }
-    // shuffle every digit of the prime candidate, except first and last digit
-    std::shuffle(rand_num.begin() + 1, rand_num.end() - 1, rng);
+    else {
+      // shuffle every digit of the prime candidate, except first and last digit
+      std::shuffle(rand_num.begin() + 1, rand_num.end() - 1, rng);
+    }
     std::cout << "\r";
   }
   std::cout << std::endl << "Prime acquired." << std::endl;
@@ -222,6 +255,38 @@ BigInt RSA::binPow(BigInt a, BigInt n, BigInt m) {
   }
 
   return res;
+}
+
+// info: extended euclidean algorithm, used for computing private key
+inline
+BigInt RSA::euclidsExtended(const BigInt E, const BigInt eulerTotient) {
+  BigInt a1 = 1, a2 = 0, b1 = 0, b2 = 1, d1 = eulerTotient, d2 = E, temp;
+
+  while (d2 != 1) {
+    BigInt k = (d1 / d2);
+
+    temp = a2;
+    a2 = a1 - (a2 * k);
+    a1 = temp;
+
+    temp = b2;
+    b2 = b1 - (b2 * k);
+    b1 = temp;
+
+    temp = d2;
+    d2 = d1 - (d2 * k);
+    d1 = temp;
+  }
+  BigInt d = b2;
+
+  if (d > eulerTotient) {
+    d = d % eulerTotient;
+  }
+  else if (d < 0) {
+    d = d + eulerTotient;
+  }
+
+  return d;
 }
 
 // ****************************************
