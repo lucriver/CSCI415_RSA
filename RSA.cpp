@@ -33,12 +33,12 @@ private:
   BigInt p, q, n, phi_n, e, d;
   BigInt generateRandomPrime(const int) const;
   BigInt randomBigInt(const int) const;
-  BigInt randomBigIntInRange(const BigInt,const BigInt) const;
-  BigInt fastModExpBigInt(BigInt,BigInt,BigInt) const;
-  long long fastModExp(long long,long long,long long) const;
-  BigInt euclidsExtended(BigInt,BigInt) const;
+  BigInt randomBigIntInRange(const BigInt, const BigInt) const;
+  BigInt fastModExpBigInt(BigInt, BigInt, BigInt) const;
+  long long fastModExp(long long, long long, long long) const;
+  BigInt euclidsExtended(BigInt, BigInt) const;
   bool isPrimeMRT(const BigInt, const int) const;
-  bool MRT(BigInt,const BigInt) const;
+  bool MRT(BigInt, const BigInt) const;
 
 };
 
@@ -95,7 +95,7 @@ RSA::RSA(const int decimal_digits_count) {
   }
 
   // define private key (or alternatively d in textbook)
-  d = euclidsExtended(e,phi_n);
+  d = euclidsExtended(e, phi_n);
 
   // final verification
   if (((e * d) % phi_n) != BigInt(1)) {
@@ -213,7 +213,7 @@ bool RSA::isPrimeMRT(const BigInt num, const int rounds) const {
 inline
 bool RSA::MRT(BigInt x, const BigInt num) const {
   BigInt a = randomBigIntInRange(BigInt(2), num - BigInt(1));
-  BigInt z = fastModExpBigInt(a,x,num);
+  BigInt z = fastModExpBigInt(a, x, num);
 
   if (z == BigInt(1) || z == num - BigInt(1)) {
     return true;
@@ -292,19 +292,19 @@ BigInt RSA::fastModExpBigInt(BigInt a, BigInt b, BigInt m) const {
 // // info: implements the fast modular exponentiation algorithm in project requirements
 // // params: long long's a, b and n
 // // returns: (a^b) mod (n)
-inline 
+inline
 long long RSA::fastModExp(long long a, long long int b, long long m) const {
-	long long f = 1;
-	if (1 & b)
-		f = a;
-	while (1) {
-		if (!b) break;
-		b>>= 1;
-		a = (a * a) % m;
-		if (b & 1)
-			f = (f * a) % m;
-	}
-	return f;
+  long long f = 1;
+  if (1 & b)
+    f = a;
+  while (1) {
+    if (!b) break;
+    b >>= 1;
+    a = (a * a) % m;
+    if (b & 1)
+      f = (f * a) % m;
+  }
+  return f;
 }
 
 // info: extended euclidean algorithm, used for computing private key
