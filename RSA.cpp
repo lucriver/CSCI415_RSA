@@ -19,19 +19,26 @@ public:
   RSA(const int);
   ~RSA();
 
-  // ---- debugging function
+  BigInt getPublicKey() const;
+  BigInt getPrivateKey() const;
+  BigInt getKeyModulo() const;
+
+  // encrypt()
+  // decrypt()
+
+  // ---- debugging function, outputs all class member values
   void debug();
 
 private:
-  BigInt p, q, n, modulo, e, d;
-
-  BigInt generateRandomPrime(int);
-  BigInt randomBigInt(int);
-  BigInt randomBigIntInRange(BigInt, BigInt);
-  BigInt binPow(BigInt, BigInt, BigInt);
-  BigInt euclidsExtended(const BigInt, const BigInt);
-  bool isPrimeMRT(BigInt, int);
-  bool MRT(BigInt, BigInt);
+  BigInt p, q, n, phi_n, e, d;
+  BigInt generateRandomPrime(const int) const;
+  BigInt randomBigInt(const int) const;
+  BigInt randomBigIntInRange(const BigInt,const BigInt) const;
+  BigInt fastModExpBigInt(BigInt,BigInt,BigInt) const;
+  long long fastModExp(long long,long long,long long) const;
+  BigInt euclidsExtended(BigInt,BigInt) const;
+  bool isPrimeMRT(const BigInt, const int) const;
+  bool MRT(BigInt,const BigInt) const;
 
 };
 
@@ -42,9 +49,9 @@ void RSA::debug() {
   std::cout << "p: " << p << std::endl;
   std::cout << "q: " << q << std::endl;
   std::cout << "n: " << n << std::endl;
-  std::cout << "modulo: " << modulo << std::endl;
-  std::cout << "e: " << e << std::endl;
-  std::cout << "d: " << d << std::endl;
+  std::cout << "phi(n): " << getKeyModulo() << std::endl;
+  std::cout << "e (public key): " << getPublicKey() << std::endl;
+  std::cout << "d (private key): " << getPrivateKey() << std::endl;
 }
 
 
@@ -58,7 +65,7 @@ RSA::RSA(const int decimal_digits_count) {
   std::cout << "Initializing RSA crypto-system..." << std::endl;
   // verify number of digits for primes p and q are valid
   if (decimal_digits_count < MIN_DIGITS || decimal_digits_count > MAX_DIGITS) {
-    std::string s = "Invalid number of decimal digits. " + std::to_string(MIN_DIGITS) + " <= x <= " + std::to_string(MAX_DIGITS);
+    const std::string s = "Invalid number of decimal digits. " + std::to_string(MIN_DIGITS) + " <= x <= " + std::to_string(MAX_DIGITS);
     throw std::invalid_argument(s);
   }
 
@@ -68,34 +75,59 @@ RSA::RSA(const int decimal_digits_count) {
   q = generateRandomPrime(decimal_digits_count);
   std::cout << "System primes initialized." << std::endl;
 
+  std::cout << "Calculating system keys..." << std::endl;
   // define n
-  n = BigInt(p * q);
+  n = BigInt((p * q));
 
   // define modulo (or alternatively phi(n) in textbook)
-  modulo = BigInt((p - BigInt(1)) * (q - BigInt(1)));
+  phi_n = BigInt((p - BigInt(1)) * (q - BigInt(1)));
 
   // define public key (or alternatively e in textbook)
-  for (int i = 2; BigInt(i) < modulo; i++) {
-    BigInt res = gcd(BigInt(i), modulo);
+  for (int i = 2; BigInt(i) < phi_n; i++) {
+    BigInt res = gcd(BigInt(i), phi_n);
     if (res == BigInt(1)) {
       e = BigInt(i);
       break;
     }
   }
-  if (e <= BigInt(1) || e >= modulo) {
-    throw std::out_of_range("Euler totient is of incorrect value.");
+  if (e <= BigInt(1) || e >= phi_n) {
+    throw std::logic_error("Calculated euler totient is of incorrect value. Try again");
   }
 
   // define private key (or alternatively d in textbook)
-  d = euclidsExtended(e,modulo);
+  d = euclidsExtended(e,phi_n);
+
+  // final verification
+  if (((e * d) % phi_n) != BigInt(1)) {
+    throw std::logic_error("Variables produced violate requirements for RSA. Try again");
+  }
+  std::cout << "System keys initialized." << std::endl;
+  std::cout << "RSA crypto-system initialized." << std::endl;
 
   debug();
 }
 
 
-
 inline
 RSA::~RSA() {}
+
+// info: returns the public key for the RSA crypto-system
+inline
+BigInt RSA::getPublicKey() const {
+  return e;
+}
+
+// info: returns the private key for the RSA crypto-system
+inline
+BigInt RSA::getPrivateKey() const {
+  return d;
+}
+
+// info: returns the modulo n to use with the public and private keys
+inline
+BigInt RSA::getKeyModulo() const {
+  return n;
+}
 
 // ****************************************
 
@@ -106,7 +138,7 @@ RSA::~RSA() {}
 // params: int specifying how many digits prime should be
 // returns: a random n-digit miller-rabin prime of BigInt type
 inline
-BigInt RSA::generateRandomPrime(int decimal_digits_count) {
+BigInt RSA::generateRandomPrime(const int decimal_digits_count) const {
   std::random_device rd;      // generate seed for random number generator (rng)
   std::mt19937_64 rng(rd());  // random number generator
 
@@ -123,10 +155,10 @@ BigInt RSA::generateRandomPrime(int decimal_digits_count) {
 
   // use miller-rabin to determine if rand_num is prime
   std::cout << "Looking for primes..." << std::endl;
-  int rounds = 40;
   int counter = 0;
-  int reset_interval = 500; // interval by which shuffling prime candidate should be aborted
-  int max_evals = 5000;
+  const int reset_interval = 500; // interval by which shuffling prime candidate should be aborted
+  const int max_evals = 5000;
+  const int rounds = 40;
   while (!isPrimeMRT(BigInt(rand_num), rounds)) { // while prime candidate is not prime by miller-rabin method
     counter++;
     std::cout << "Prime candidates evaluated: " << counter;
@@ -155,22 +187,22 @@ BigInt RSA::generateRandomPrime(int decimal_digits_count) {
 // info: return true or false if BigInt n is prime based on miller-rabin test.
 // params: prime candidate BigInt and number of rounds for miller-rabin test.
 inline
-bool RSA::isPrimeMRT(BigInt n, int rounds) {
-  if (n != BigInt(2) && n.isEven()) {
+bool RSA::isPrimeMRT(const BigInt num, const int rounds) const {
+  if (num != BigInt(2) && num.isEven()) {
     return false;
   }
-  if (n <= BigInt(1) || n == BigInt(4)) {
+  if (num <= BigInt(1) || num == BigInt(4)) {
     return false;
   }
-  if (n < BigInt(4)) {
+  if (num < BigInt(4)) {
     return true;
   }
-  BigInt d = n - BigInt(1);
-  while (d.isEven()) {
-    d = d / BigInt(2);
+  BigInt x = num - BigInt(1);
+  while (x.isEven()) {
+    x = x / BigInt(2);
   }
   for (int i = 0; i < rounds; i++) {
-    if (!MRT(d, n)) {
+    if (!MRT(x, num)) {
       return false;
     }
   }
@@ -179,22 +211,22 @@ bool RSA::isPrimeMRT(BigInt n, int rounds) {
 
 // info: simple helper function for the isPrimeMRT method.
 inline
-bool RSA::MRT(BigInt d, BigInt n) {
-  BigInt a = randomBigIntInRange(2, n - BigInt(1));
-  BigInt x = binPow(a, d, n);
+bool RSA::MRT(BigInt x, const BigInt num) const {
+  BigInt a = randomBigIntInRange(BigInt(2), num - BigInt(1));
+  BigInt z = fastModExpBigInt(a,x,num);
 
-  if (x == BigInt(1) || x == n - BigInt(1)) {
+  if (z == BigInt(1) || z == num - BigInt(1)) {
     return true;
   }
 
-  while (d != n - BigInt(1)) {
-    x = (x * x) % n;
-    d = d * BigInt(2);
+  while (x != num - BigInt(1)) {
+    z = (z * z) % num;
+    x = x * BigInt(2);
 
-    if (x == BigInt(1)) {
+    if (z == BigInt(1)) {
       return false;
     }
-    if (x == n - BigInt(1)) {
+    if (z == num - BigInt(1)) {
       return true;
     }
   }
@@ -205,7 +237,7 @@ bool RSA::MRT(BigInt d, BigInt n) {
 // info: return a random, n-digit number of BigInt type
 // params: number of digits the random number should have
 inline
-BigInt RSA::randomBigInt(int digits_count) {
+BigInt RSA::randomBigInt(const int digits_count) const {
   if (digits_count <= 0) {
     throw std::invalid_argument("Invalid number of digits for random number to be generated.");
   }
@@ -225,7 +257,7 @@ BigInt RSA::randomBigInt(int digits_count) {
 // params: range of potential random number: (low <= rand <= high)
 // returns: random number of big-int type whose value falls within low and high
 inline
-BigInt RSA::randomBigIntInRange(BigInt low, BigInt high) {
+BigInt RSA::randomBigIntInRange(const BigInt low, const BigInt high) const {
   if (low >= high) {
     throw std::invalid_argument("Invalid value range for random number to be generated.");
   }
@@ -239,26 +271,45 @@ BigInt RSA::randomBigIntInRange(BigInt low, BigInt high) {
   return rand_val;
 }
 
-// info: helpful modular exponentiation function. allows us to compute (a ^ n) % m for numbers of BigInt type.
-//  returns: (a ^ n) % m
+// info: implements the fast modular exponentiation algorithm in project requirements for BigInts
+// params: BigInt's a, b and n
+// returns: (a^b) mod (n)
 inline
-BigInt RSA::binPow(BigInt a, BigInt n, BigInt m) {
-  BigInt res(1);
+BigInt RSA::fastModExpBigInt(BigInt a, BigInt b, BigInt m) const {
+  BigInt f(1);
   a = a % m;
 
-  while (n > BigInt(0)) {
-    if (n.isOdd())
-      res = (res * a) % m;
+  while (b > BigInt(0)) {     // Figure 9.8: for i = k until i = 0
+    if (b.isOdd())            // Figure 9.8:  if b_i = 1 
+      f = (f * a) % m;
     a = (a * a) % m;
-    n = n / 2;
+    b = b / 2;                // Figure 9.8:  c <- 2 * c
   }
 
-  return res;
+  return f;
+}
+
+// // info: implements the fast modular exponentiation algorithm in project requirements
+// // params: long long's a, b and n
+// // returns: (a^b) mod (n)
+inline 
+long long RSA::fastModExp(long long a, long long int b, long long m) const {
+	long long f = 1;
+	if (1 & b)
+		f = a;
+	while (1) {
+		if (!b) break;
+		b>>= 1;
+		a = (a * a) % m;
+		if (b & 1)
+			f = (f * a) % m;
+	}
+	return f;
 }
 
 // info: extended euclidean algorithm, used for computing private key
 inline
-BigInt RSA::euclidsExtended(const BigInt E, const BigInt eulerTotient) {
+BigInt RSA::euclidsExtended(BigInt E, BigInt eulerTotient) const {
   BigInt a1 = 1, a2 = 0, b1 = 0, b2 = 1, d1 = eulerTotient, d2 = E, temp;
 
   while (d2 != 1) {
@@ -276,16 +327,16 @@ BigInt RSA::euclidsExtended(const BigInt E, const BigInt eulerTotient) {
     d2 = d1 - (d2 * k);
     d1 = temp;
   }
-  BigInt d = b2;
+  BigInt x = b2;
 
-  if (d > eulerTotient) {
-    d = d % eulerTotient;
+  if (x > eulerTotient) {
+    x = x % eulerTotient;
   }
-  else if (d < 0) {
-    d = d + eulerTotient;
+  else if (x < 0) {
+    x = x + eulerTotient;
   }
 
-  return d;
+  return x;
 }
 
 // ****************************************

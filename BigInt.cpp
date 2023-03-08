@@ -1,3 +1,6 @@
+// This struct allows for the implementation of very large integers when writing C++ programs.
+// Struct is complete and should not be modified.
+
 #include <iostream>
 #include <iomanip>
 #include <vector>
@@ -32,6 +35,7 @@ struct BigInt {
 
   // ******************** Operator overloading methods ********************
 
+  // ----- Assignment -----
   void operator=(const BigInt& v) {
     sign = v.sign;
     a = v.a;
@@ -44,7 +48,9 @@ struct BigInt {
     for (; v > 0; v = v / base)
       a.push_back(v % base);
   }
+  // ----------
 
+  // ----- Arithmetic -----
   BigInt operator+(const BigInt& v) const {
     if (sign == v.sign) {
       BigInt res = v;
@@ -80,6 +86,12 @@ struct BigInt {
     return *this + (-v);
   }
 
+  BigInt operator-() const {
+    BigInt res = *this;
+    res.sign = -sign;
+    return res;
+  }
+
   void operator*=(int v) {
     if (v < 0)
       sign = -sign, v = -v;
@@ -93,18 +105,34 @@ struct BigInt {
     trim();
   }
 
+  BigInt operator*(const BigInt& v) const {
+    std::vector<int> a6 = convert_base(this->a, base_digits, 6);
+    std::vector<int> b6 = convert_base(v.a, base_digits, 6);
+    vll a(a6.begin(), a6.end());
+    vll b(b6.begin(), b6.end());
+    while (a.size() < b.size())
+      a.push_back(0);
+    while (b.size() < a.size())
+      b.push_back(0);
+    while (a.size() & (a.size() - 1))
+      a.push_back(0), b.push_back(0);
+    vll c = karatsubaMultiply(a, b);
+    BigInt res;
+    res.sign = sign * v.sign;
+    for (int i = 0, carry = 0; i < (int)c.size(); i++) {
+      long long cur = c[i] + carry;
+      res.a.push_back((int)(cur % 1000000));
+      carry = (int)(cur / 1000000);
+    }
+    res.a = convert_base(res.a, 6, base_digits);
+    res.trim();
+    return res;
+  }
+
   BigInt operator*(int v) const {
     BigInt res = *this;
     res *= v;
     return res;
-  }
-
-  BigInt operator/(const BigInt& v) const {
-    return divmod(*this, v).first;
-  }
-
-  BigInt operator%(const BigInt& v) const {
-    return divmod(*this, v).second;
   }
 
   void operator/=(int v) {
@@ -118,10 +146,18 @@ struct BigInt {
     trim();
   }
 
+  BigInt operator/(const BigInt& v) const {
+    return divmod(*this, v).first;
+  }
+
   BigInt operator/(int v) const {
     BigInt res = *this;
     res /= v;
     return res;
+  }
+
+  BigInt operator%(const BigInt& v) const {
+    return divmod(*this, v).second;
   }
 
   int operator%(int v) const {
@@ -145,7 +181,9 @@ struct BigInt {
   void operator/=(const BigInt& v) {
     *this = *this / v;
   }
+  // ----------
 
+  // ----- Comparison -----
   bool operator<(const BigInt& v) const {
     if (sign != v.sign)
       return sign < v.sign;
@@ -172,13 +210,9 @@ struct BigInt {
   bool operator!=(const BigInt& v) const {
     return *this < v || v < *this;
   }
+  // ----------
 
-  BigInt operator-() const {
-    BigInt res = *this;
-    res.sign = -sign;
-    return res;
-  }
-
+  // ----- Stream -----
   friend std::istream& operator>>(std::istream& stream, BigInt& v) {
     std::string s;
     stream >> s;
@@ -194,30 +228,7 @@ struct BigInt {
       stream << std::setw(base_digits) << std::setfill('0') << v.a[i];
     return stream;
   }
-
-  BigInt operator*(const BigInt& v) const {
-    std::vector<int> a6 = convert_base(this->a, base_digits, 6);
-    std::vector<int> b6 = convert_base(v.a, base_digits, 6);
-    vll a(a6.begin(), a6.end());
-    vll b(b6.begin(), b6.end());
-    while (a.size() < b.size())
-      a.push_back(0);
-    while (b.size() < a.size())
-      b.push_back(0);
-    while (a.size() & (a.size() - 1))
-      a.push_back(0), b.push_back(0);
-    vll c = karatsubaMultiply(a, b);
-    BigInt res;
-    res.sign = sign * v.sign;
-    for (int i = 0, carry = 0; i < (int)c.size(); i++) {
-      long long cur = c[i] + carry;
-      res.a.push_back((int)(cur % 1000000));
-      carry = (int)(cur / 1000000);
-    }
-    res.a = convert_base(res.a, 6, base_digits);
-    res.trim();
-    return res;
-  }
+  // ----------
 
   // ****************************************
 
@@ -281,8 +292,7 @@ struct BigInt {
     return a / gcd(a, b) * b;
   }
 
-  void read(const std::string& s)                                 
-  {
+  void read(const std::string& s) {
     sign = 1;
     a.clear();
     int pos = 0;
@@ -364,13 +374,13 @@ struct BigInt {
     return res;
   }
 
-  bool isEven() {
+  bool isEven() const {
     if ((*this) == BigInt(0))
       return false;
     return a[0] % 2 == 0;
   }
 
-  bool isOdd() {
+  const bool isOdd() const {
     if ((*this) == BigInt(0))
       return false;
     return a[0] % 2 == 1;
@@ -378,4 +388,4 @@ struct BigInt {
 
 };
 
-  // ****************************************
+// ****************************************
