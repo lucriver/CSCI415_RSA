@@ -5,6 +5,7 @@
 #include <string>
 #include <random>
 #include <algorithm>
+#include <sstream>
 
 #include "BigInt.cpp"
 
@@ -39,7 +40,6 @@ private:
   BigInt euclidsExtended(BigInt, BigInt) const;
   bool isPrimeMRT(const BigInt, const int) const;
   bool MRT(BigInt, const BigInt) const;
-
 };
 
 
@@ -103,8 +103,6 @@ RSA::RSA(const int decimal_digits_count) {
   }
   std::cout << "System keys initialized." << std::endl;
   std::cout << "RSA crypto-system initialized." << std::endl;
-
-  debug();
 }
 
 
@@ -156,7 +154,7 @@ BigInt RSA::generateRandomPrime(const int decimal_digits_count) const {
   // use miller-rabin to determine if rand_num is prime
   std::cout << "Looking for primes..." << std::endl;
   int counter = 0;
-  const int reset_interval = 500; // interval by which shuffling prime candidate should be aborted
+  const int reset_interval = 200; // interval by which shuffling prime candidate should be aborted
   const int max_evals = 5000;
   const int rounds = 40;
   while (!isPrimeMRT(BigInt(rand_num), rounds)) { // while prime candidate is not prime by miller-rabin method
