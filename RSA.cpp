@@ -1,5 +1,5 @@
 /* RSA class definition */
-/* Authors: Lucas Hirt */
+/* Author: Lucas Hirt */
 
 #include <iostream>
 #include <string>
@@ -24,7 +24,6 @@ public:
   ~RSA();
 
   BigInt getPublicKey() const;
-  BigInt getPrivateKey() const;
   BigInt getKeyModulo() const;
 
   // TODO- these need to be worked on
@@ -42,22 +41,24 @@ private:
         {'F', 5}, {'G', 6}, {'H', 7}, {'I', 8}, {'J', 9},
         {'K', 10}, {'L', 11}, {'M', 12}, {'N', 13}, {'O', 14},
         {'P', 15}, {'Q', 16}, {'R', 17}, {'S', 18}, {'T', 19},
-        {'U', 20}, {'V', 21}, {'W', 22}, {'X', 23}, {'Y', 24}, {'Z', 25}
+        {'U', 20}, {'V', 21}, {'W', 22}, {'X', 23}, {'Y', 24}, {'Z', 25}, {'-', 26}
         }),
       num_char({
         {0, 'A'}, {1, 'B'}, {2, 'C'}, {3, 'D'}, {4, 'E'},
         {5, 'F'}, {6, 'G'}, {7, 'H'}, {8, 'I'}, {9, 'J'},
         {10, 'K'}, {11, 'L'}, {12, 'M'}, {13, 'N'}, {14, 'O'},
         {15, 'P'}, {16, 'Q'}, {17, 'R'}, {18, 'S'}, {19, 'T'},
-        {20, 'U'}, {21, 'V'}, {22, 'W'}, {23, 'X'}, {24, 'Y'}, {25, 'Z'}
-        }) {
+        {20, 'U'}, {21, 'V'}, {22, 'W'}, {23, 'X'}, {24, 'Y'}, {25, 'Z'}, 
+        }),
+      base {27} {
     }
     std::map<char, BigInt> char_num;
     std::map<BigInt, char> num_char;
+    long unsigned int base;
     bool check_char(std::map<char, BigInt> map, char key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
     bool check_num(std::map<BigInt, char> map, BigInt key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
-    BigInt char_to_num(const char& c) { try { return char_num.at(c); } catch (std::exception& ex) { throw ex; } }
-    char num_to_char(const BigInt& x) { try { return num_char.at(x); } catch (std::exception& ex) { throw ex; } }
+    BigInt char_to_num(const char& c) { try { return char_num.at(c); } catch (std::exception& ex) { throw std::logic_error("no key"); } }
+    char num_to_char(const BigInt& x) { try { return num_char.at(x); } catch (std::exception& ex) { throw std::logic_error("no key"); } }
   };
   Codebook codebook;
 
@@ -66,7 +67,8 @@ private:
   BigInt phi_n;
   BigInt e;    // public key
   BigInt d;    // private key
-
+  
+  BigInt getPrivateKey() const;
   std::string encrypt_plaintext_block(const std::string&, Codebook*);
   std::string decrypt_ciphertext_block(const std::string&, Codebook*);
   BigInt generateRandomPrime(const int) const;
@@ -75,7 +77,6 @@ private:
   BigInt fastModExpBigInt(BigInt, BigInt, BigInt) const;
   BigInt euclidsExtended(BigInt, BigInt) const;
   BigInt pow(const BigInt&, int) const;
-  long long fastModExp(long long, long long, long long) const;
   bool isPrimeMRT(const BigInt, const int) const;
   bool MRT(BigInt, const BigInt) const;
 };
@@ -186,30 +187,33 @@ std::string RSA::decrypt(const std::string& s) {
 
 // ****************************************
 
-
 // ******************** Private methods ********************
 
 inline
 std::string RSA::encrypt_plaintext_block(const std::string& block, Codebook* codebook) {
+  
+  if (block.size() < BLOCK_SIZE_PLAINTEXT_BYTES || block.size() > BLOCK_SIZE_PLAINTEXT_BYTES) {
+    throw std::range_error("Plainext block is of incorrect size.");
+  }
 
   BigInt trigraph = 0;
   for (int i = 0; i < BLOCK_SIZE_PLAINTEXT_BYTES; i++) {
     if (!codebook->check_char(codebook->char_num,toupper(char(block[i])))) {
       throw std::range_error("Unreadable plaintext character detected. Ensure plaintext consists of ONLY LETTERS.");
     }
-    trigraph += pow(26, (BLOCK_SIZE_PLAINTEXT_BYTES - 1) - i) * codebook->char_to_num(toupper((char(block[i]))));
+    trigraph += pow(codebook->base, (BLOCK_SIZE_PLAINTEXT_BYTES - 1) - i) * codebook->char_to_num(toupper((char(block[i]))));
   }
 
   BigInt ciphertext = fastModExpBigInt(trigraph, e, n);
 
-  BigInt code_0 = ciphertext / pow(26, 3);
-  ciphertext = ciphertext % pow(26, 3);
+  BigInt code_0 = ciphertext / pow(codebook->base, 3);
+  ciphertext = ciphertext % pow(codebook->base, 3);
 
-  BigInt code_1 = ciphertext / pow(26, 2);
-  ciphertext = ciphertext % pow(26, 2);
+  BigInt code_1 = ciphertext / pow(codebook->base, 2);
+  ciphertext = ciphertext % pow(codebook->base, 2);
 
-  BigInt code_2 = ciphertext / 26;
-  BigInt code_3 = ciphertext % 26;
+  BigInt code_2 = ciphertext / codebook->base;
+  BigInt code_3 = ciphertext % codebook->base;
 
   const BigInt codes[BLOCK_SIZE_CIPHERTEXT_BYTES] = { code_0,code_1,code_2,code_3 };
 
@@ -218,21 +222,23 @@ std::string RSA::encrypt_plaintext_block(const std::string& block, Codebook* cod
   srand(time(0));
   for (int i = 0; i < BLOCK_SIZE_CIPHERTEXT_BYTES; i++) {
     if (!codebook->check_num(codebook->num_char, codes[i])) {
-      char new_char = char((rand() % 26) + 97);
+      char new_char = char((rand() % (codebook->base - 1)) + 97);
       int counter = 0;
       while (codebook->check_char(codebook->char_num,new_char)) {
         if (counter >= 100) {
           throw std::logic_error("Failure to assign new key value for trigraph code.");
         }
-        new_char = char((rand() % 26) + 97);
+        new_char = char((rand() % (codebook->base - 1)) + 97);
         counter++;
       }
       codebook->char_num.insert({ new_char,codes[i] });
       quadragraph += new_char;
+
       continue;
     }
     quadragraph += char(codes[i].longValue() + 65);
   }
+
 
   return quadragraph;
 }
@@ -243,23 +249,33 @@ std::string RSA::decrypt_ciphertext_block(const std::string& block, Codebook* co
 
   BigInt ciphertext(0);
   for (int i = 0; i < BLOCK_SIZE_CIPHERTEXT_BYTES; i++) {
-    ciphertext += BigInt(codebook->char_to_num(char(block[i]))) * pow(26, (BLOCK_SIZE_CIPHERTEXT_BYTES - 1 - i));
+    ciphertext += BigInt(codebook->char_to_num(char(block[i]))) * pow(codebook->base, (BLOCK_SIZE_CIPHERTEXT_BYTES - 1 - i));
   }
 
   BigInt trigraph = fastModExpBigInt(ciphertext, d, n);
 
-  BigInt num_0 = trigraph / pow(26, 2);
+  BigInt num_0 = trigraph / pow(codebook->base, 2);
 
-  trigraph = trigraph % pow(26, 2);
+  trigraph = trigraph % pow(codebook->base, 2);
 
-  BigInt num_1 = trigraph / 26;
-  BigInt num_2 = trigraph % 26;
+  BigInt num_1 = trigraph / codebook->base;
+  BigInt num_2 = trigraph % codebook->base;
+
+  BigInt nums[BLOCK_SIZE_PLAINTEXT_BYTES] = { num_0, num_1, num_2 };
+  char codes[BLOCK_SIZE_PLAINTEXT_BYTES];
+
+  for (int i = 0; i<BLOCK_SIZE_PLAINTEXT_BYTES; i++) {
+    if (nums[i] == 26) {
+      codes[i] = ' ';
+      continue;
+    }
+    codes[i] = codebook->num_to_char(nums[i]);
+  }
 
   std::string plaintext_string = "";
-
-  plaintext_string += codebook->num_to_char(num_0);
-  plaintext_string += codebook->num_to_char(num_1);
-  plaintext_string += codebook->num_to_char(num_2);
+  for (int i=0; i<BLOCK_SIZE_PLAINTEXT_BYTES; i++) {
+    plaintext_string += codes[i];
+  }
 
   return plaintext_string;
 }
@@ -441,24 +457,6 @@ BigInt RSA::fastModExpBigInt(BigInt a, BigInt b, BigInt m) const {
     b = b / 2;                // Figure 9.8:  c <- 2 * c
   }
 
-  return f;
-}
-
-// info: implements the fast modular exponentiation algorithm in project requirements
-// params: long long's a, b and m
-// returns: (a^b) mod (m)
-inline
-long long RSA::fastModExp(long long a, long long int b, long long m) const {
-  long long f = 1;
-  if (1 & b)
-    f = a;
-  while (1) {
-    if (!b) break;
-    b >>= 1;
-    a = (a * a) % m;
-    if (b & 1)
-      f = (f * a) % m;
-  }
   return f;
 }
 
