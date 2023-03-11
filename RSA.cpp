@@ -26,16 +26,23 @@ public:
   BigInt getPublicKey() const;
   BigInt getKeyModulo() const;
 
-  // TODO- these need to be worked on
-  std::string encrypt(const std::string&);
-  std::string decrypt(const std::string&);
+  void file_encrypt(const std::string&, const std::string&);
+  void file_decrypt(const std::string&, const std::string&);
+
+  std::string temp_encrypt(const std::string&);
+  std::string temp_decrypt(const std::string&);
 
   // ---- debugging function, outputs all class member values
   void debug();
 
 private:
   struct Codebook {
+    const char NULL_CHAR;
+    std::map<char, BigInt> char_num;
+    std::map<BigInt, char> num_char;
+    long unsigned int base;
     Codebook():
+      NULL_CHAR {'-'},
       char_num({
         {'A', 0}, {'B', 1}, {'C', 2}, {'D', 3}, {'E', 4},
         {'F', 5}, {'G', 6}, {'H', 7}, {'I', 8}, {'J', 9},
@@ -50,13 +57,8 @@ private:
         {15, 'P'}, {16, 'Q'}, {17, 'R'}, {18, 'S'}, {19, 'T'},
         {20, 'U'}, {21, 'V'}, {22, 'W'}, {23, 'X'}, {24, 'Y'}, {25, 'Z'}, 
         }),
-      base {27},
-      NULL_CHAR {'-'} {
+      base {27} {
     }
-    const char NULL_CHAR;
-    std::map<char, BigInt> char_num;
-    std::map<BigInt, char> num_char;
-    long unsigned int base;
     bool check_char(std::map<char, BigInt> map, char key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
     bool check_num(std::map<BigInt, char> map, BigInt key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
     BigInt char_to_num(const char& c) { try { return char_num.at(c); } catch (std::exception& ex) { throw std::logic_error("no key"); } }
@@ -71,6 +73,8 @@ private:
   BigInt d;    // private key
   
   BigInt getPrivateKey() const;
+  std::string encrypt(const std::string&);
+  std::string decrypt(const std::string&);
   std::string encrypt_plaintext_block(const std::string&, Codebook*);
   std::string decrypt_ciphertext_block(const std::string&, Codebook*);
   BigInt generateRandomPrime(const int) const;
@@ -185,6 +189,17 @@ std::string RSA::decrypt(const std::string& s) {
   Codebook* cbook_ptr;
   cbook_ptr = &codebook;
   return decrypt_ciphertext_block(s, cbook_ptr);
+}
+
+
+inline
+std::string RSA::temp_encrypt(const std::string& s) {
+  return encrypt(s);
+}
+
+inline
+std::string RSA::temp_decrypt(const std::string& s) {
+  return decrypt(s);
 }
 
 // ****************************************

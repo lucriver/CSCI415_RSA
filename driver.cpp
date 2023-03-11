@@ -3,9 +3,11 @@
 
 #include "RSA.cpp"
 
+void basic_test(RSA);
+
 int main() {
   // specify how many digits our RSA primes should be
-  int prime_digits = 50;
+  int prime_digits = 100;
 
   // initialize the RSA crypto-system
   RSA rsa_0(prime_digits);
@@ -13,31 +15,34 @@ int main() {
   // check initialized class values
   rsa_0.debug();
 
+  basic_test(rsa_0);
+
+  return 0;
+}
+
+void basic_test(RSA rsa_0) {
   // example encryption
   const std::string message_0[5] = {"NIC","EWE","ATH","ERT","ODA"};
   for (int i=0;i<5;i++) {
-    std::string ciphertext = rsa_0.encrypt(message_0[i]);
-    std::string decrypted = rsa_0.decrypt(ciphertext);
+    std::string ciphertext = rsa_0.temp_encrypt(message_0[i]);
+    std::string decrypted = rsa_0.temp_decrypt(ciphertext);
     std::cout << message_0[i] << " -> " << ciphertext << " -> " << decrypted << std::endl;
   }
   std::cout << std::endl;
 
   const std::string message_1[5] = { "IMI", "SSM", "YGI", "RLF", "RIE" };
   for (int i=0;i<5;i++) {
-    std::string ciphertext = rsa_0.encrypt(message_1[i]);
-    std::string decrypted = rsa_0.decrypt(ciphertext);
+    std::string ciphertext = rsa_0.temp_encrypt(message_1[i]);
+    std::string decrypted = rsa_0.temp_decrypt(ciphertext);
     std::cout << message_1[i] << " -> " << ciphertext << " -> " << decrypted << std::endl;
   }
   std::cout << std::endl;
 
   const std::string message_2[5] = { "aBi", "GmA", "N-E", "NTT", "TO-" };
   for (int i=0;i<5;i++) {
-    std::string ciphertext = rsa_0.encrypt(message_2[i]);
-    std::string decrypted = rsa_0.decrypt(ciphertext);
+    std::string ciphertext = rsa_0.temp_encrypt(message_2[i]);
+    std::string decrypted = rsa_0.temp_decrypt(ciphertext);
     std::cout << message_2[i] << " -> " << ciphertext << " -> " << decrypted << std::endl;
   }
   std::cout << std::endl;
-
-  return 0;
 }
-
