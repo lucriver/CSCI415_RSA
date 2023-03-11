@@ -6,7 +6,7 @@
 #include <random>
 #include <algorithm>
 #include <sstream>
-#include <unordered_map>
+#include <map>
 
 #include "BigInt.cpp"
 
@@ -52,13 +52,14 @@ private:
         {20, 'U'}, {21, 'V'}, {22, 'W'}, {23, 'X'}, {24, 'Y'}, {25, 'Z'}
         }) {
     }
-    bool check_char(std::unordered_map<char, BigInt> map, char key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
-    bool check_num(std::unordered_map<BigInt, char> map, int key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
+    std::map<char, BigInt> char_num;
+    std::map<BigInt, char> num_char;
+    bool check_char(std::map<char, BigInt> map, char key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
+    bool check_num(std::map<BigInt, char> map, BigInt key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
     BigInt char_to_num(const char& c) { try { return char_num.at(c); } catch (std::exception& ex) { throw ex; } }
-    char num_to_char(const int& x) { try { return num_char.at(x); } catch (std::exception& ex) { throw ex; } }
-    std::unordered_map<char, BigInt> char_num;
-    std::unordered_map<BigInt, char> num_char;
+    char num_to_char(const BigInt& x) { try { return num_char.at(x); } catch (std::exception& ex) { throw ex; } }
   };
+  Codebook codebook;
 
   BigInt p, q; // primes p and q
   BigInt n;    // modulo used with keys
@@ -66,8 +67,8 @@ private:
   BigInt e;    // public key
   BigInt d;    // private key
 
-  std::string encrypt_plaintext_block(const std::string&, struct Codebook&);
-  std::string decrypt_ciphertext_block(const std::string&, struct Codebook&);
+  std::string encrypt_plaintext_block(const std::string&, Codebook*);
+  std::string decrypt_ciphertext_block(const std::string&, Codebook*);
   BigInt generateRandomPrime(const int) const;
   BigInt randomBigInt(const int) const;
   BigInt randomBigIntInRange(const BigInt, const BigInt) const;
@@ -142,6 +143,8 @@ RSA::RSA(const int decimal_digits_count) {
   std::cout << "System keys initialized." << std::endl;
 
   std::cout << "RSA crypto-system initialized." << std::endl;
+
+  codebook.char_num.insert({ 'a',BigInt(23) });
 }
 
 inline
@@ -168,15 +171,17 @@ BigInt RSA::getKeyModulo() const {
 // TODO
 inline
 std::string RSA::encrypt(const std::string& s) {
-  Codebook codebook;
-  return encrypt_plaintext_block(s, codebook);
+  Codebook* cbook_ptr;
+  cbook_ptr = &codebook;
+  return encrypt_plaintext_block(s, cbook_ptr);
 }
 
 // TODO 
 inline
 std::string RSA::decrypt(const std::string& s) {
-  Codebook codebook;
-  return decrypt_ciphertext_block(s, codebook);
+  Codebook* cbook_ptr;
+  cbook_ptr = &codebook;
+  return decrypt_ciphertext_block(s, cbook_ptr);
 }
 
 // ****************************************
@@ -185,59 +190,61 @@ std::string RSA::decrypt(const std::string& s) {
 // ******************** Private methods ********************
 
 inline
-std::string RSA::encrypt_plaintext_block(const std::string& block, struct Codebook& codebook) {
+std::string RSA::encrypt_plaintext_block(const std::string& block, Codebook* codebook) {
+
   BigInt trigraph = 0;
   for (int i = 0; i < BLOCK_SIZE_PLAINTEXT_BYTES; i++) {
-    trigraph += pow(26, (BLOCK_SIZE_PLAINTEXT_BYTES - 1) - i) * codebook.char_to_num(char(block[i]));
+    if (!codebook->check_char(codebook->char_num,toupper(char(block[i])))) {
+      throw std::range_error("Unreadable plaintext character detected. Ensure plaintext consists of ONLY LETTERS.");
+    }
+    trigraph += pow(26, (BLOCK_SIZE_PLAINTEXT_BYTES - 1) - i) * codebook->char_to_num(toupper((char(block[i]))));
   }
 
   BigInt ciphertext = fastModExpBigInt(trigraph, e, n);
 
-  BigInt num_0 = ciphertext / pow(26, 3);
+  BigInt code_0 = ciphertext / pow(26, 3);
   ciphertext = ciphertext % pow(26, 3);
 
-  BigInt num_1 = ciphertext / pow(26, 2);
+  BigInt code_1 = ciphertext / pow(26, 2);
   ciphertext = ciphertext % pow(26, 2);
 
-  BigInt num_2 = ciphertext / 26;
-  BigInt num_3 = ciphertext % 26;
+  BigInt code_2 = ciphertext / 26;
+  BigInt code_3 = ciphertext % 26;
 
-  const BigInt nums[BLOCK_SIZE_CIPHERTEXT_BYTES] = { num_0,num_1,num_2,num_3 };
+  const BigInt codes[BLOCK_SIZE_CIPHERTEXT_BYTES] = { code_0,code_1,code_2,code_3 };
+
   std::string quadragraph = "";
-  
 
+  srand(time(0));
   for (int i = 0; i < BLOCK_SIZE_CIPHERTEXT_BYTES; i++) {
-    if (!codebook.check_num(codebook.num_char, nums[i].longValue())) {
-      int ascii_num = (nums[i] % (25)) + 25;
-      char new_char = char(ascii_num);
-      std::cout << nums[i].longValue() << "not in codebook. using character " << new_char << " with key " << ascii_num << std::endl;
-      codebook.char_num.insert(std::make_pair(new_char,nums[i].longValue()));
-      std::cout << "value inserted. testing... => ";
-      std::cout << codebook.char_to_num(new_char) << std::endl;
-      quadragraph += char(ascii_num);
+    if (!codebook->check_num(codebook->num_char, codes[i])) {
+      char new_char = char((rand() % 26) + 97);
+      int counter = 0;
+      while (codebook->check_char(codebook->char_num,new_char)) {
+        if (counter >= 100) {
+          throw std::logic_error("Failure to assign new key value for trigraph code.");
+        }
+        new_char = char((rand() % 26) + 97);
+        counter++;
+      }
+      codebook->char_num.insert({ new_char,codes[i] });
+      quadragraph += new_char;
       continue;
     }
-    quadragraph += char(nums[i].longValue() + 65);
+    quadragraph += char(codes[i].longValue() + 65);
   }
-
-  codebook.char_num.insert({'?',69});
 
   return quadragraph;
 }
 
-inline
-std::string RSA::decrypt_ciphertext_block(const std::string& block, struct Codebook& codebook) {
 
-  std::cout << "testing: " << codebook.char_to_num('?') << std::endl;
+inline
+std::string RSA::decrypt_ciphertext_block(const std::string& block, Codebook* codebook) {
 
   BigInt ciphertext(0);
   for (int i = 0; i < BLOCK_SIZE_CIPHERTEXT_BYTES; i++) {
-    std::cout << "block byte: " << block[i] << std::endl;
-    std::cout << block[i] << "->" << codebook.char_to_num(block[i]) << std::endl;
-    ciphertext += BigInt(codebook.char_to_num(char(block[i]))) * pow(26, (BLOCK_SIZE_CIPHERTEXT_BYTES - 1 - i));
+    ciphertext += BigInt(codebook->char_to_num(char(block[i]))) * pow(26, (BLOCK_SIZE_CIPHERTEXT_BYTES - 1 - i));
   }
-
-  std::cout << ciphertext << std::endl;
 
   BigInt trigraph = fastModExpBigInt(ciphertext, d, n);
 
@@ -249,9 +256,10 @@ std::string RSA::decrypt_ciphertext_block(const std::string& block, struct Codeb
   BigInt num_2 = trigraph % 26;
 
   std::string plaintext_string = "";
-  plaintext_string += codebook.num_to_char(int(num_0.longValue()));
-  plaintext_string += codebook.num_to_char(int(num_1.longValue()));
-  plaintext_string += codebook.num_to_char(int(num_2.longValue())); 
+
+  plaintext_string += codebook->num_to_char(num_0);
+  plaintext_string += codebook->num_to_char(num_1);
+  plaintext_string += codebook->num_to_char(num_2);
 
   return plaintext_string;
 }
