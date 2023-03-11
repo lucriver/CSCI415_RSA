@@ -58,7 +58,7 @@ private:
         {15, 'P'}, {16, 'Q'}, {17, 'R'}, {18, 'S'}, {19, 'T'},
         {20, 'U'}, {21, 'V'}, {22, 'W'}, {23, 'X'}, {24, 'Y'}, {25, 'Z'},
         }),
-        base{ 27 } {
+        base{ 26 } {
     }
     bool check_char(std::map<char, BigInt> map, char key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
     bool check_num(std::map<BigInt, char> map, BigInt key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
@@ -328,13 +328,13 @@ std::string RSA::encrypt_plaintext_block(const std::string& block, Codebook* cod
   srand(time(0));
   for (int i = 0; i < BLOCK_SIZE_CIPHERTEXT_BYTES; i++) {
     if (!codebook->check_num(codebook->num_char, codes[i])) {
-      char new_char = char((rand() % (codebook->base - 1)) + 97);
+      char new_char = char((rand() % (codebook->base)) + 97);
       int counter = 0;
       while (codebook->check_char(codebook->char_num, new_char)) {
         if (counter >= 100) {
           throw std::logic_error("Failure to assign new key value for trigraph code.");
         }
-        new_char = char((rand() % (codebook->base - 1)) + 97);
+        new_char = char((rand() % (codebook->base)) + 97);
         counter++;
       }
       codebook->char_num.insert({ new_char,codes[i] });

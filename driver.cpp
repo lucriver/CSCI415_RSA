@@ -7,7 +7,7 @@ void basic_test(RSA);
 
 int main() {
   // specify how many digits our RSA primes should be
-  int prime_digits = 25;
+  int prime_digits = 100;
 
   // initialize the RSA crypto-system
   RSA rsa_0(prime_digits);
@@ -21,8 +21,10 @@ int main() {
   const std::string file_plaintext = "plaintext_0.txt";
   const std::string file_ciphertext = "ciphertext_0.txt";
   const std::string file_decrypted_ciphertext = "decrypted_0.txt";
+  std::cout << "encrypting file: " << file_plaintext << std::endl;
   rsa_0.file_encrypt(file_plaintext,file_ciphertext);
   rsa_0.file_decrypt(file_ciphertext,file_decrypted_ciphertext);
+  std::cout << "File decrypted. Output file name: " << file_decrypted_ciphertext << std::endl;
 
   return 0;
 }
