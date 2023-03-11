@@ -6,13 +6,16 @@
 #include <random>
 #include <algorithm>
 #include <sstream>
+#include <unordered_map>
 
 #include "BigInt.cpp"
 
 // info: this class allows for the implementation of an RSA crypto-system
 class RSA {
-  static const int MIN_DIGITS = 50; // Minimum number of digits for RSA primes
-  static const int MAX_DIGITS = 200; // Max number of digits for RSA primes
+  static const int MIN_DIGITS = 3;                 // Minimum number of digits for RSA primes
+  static const int MAX_DIGITS = 200;                // Max number of digits for RSA primes
+  static const int BLOCK_SIZE_PLAINTEXT_BYTES = 3;
+  static const int BLOCK_SIZE_CIPHERTEXT_BYTES = 4;
 
 public:
 
@@ -25,24 +28,53 @@ public:
   BigInt getKeyModulo() const;
 
   // TODO- these need to be worked on
-  std::string encrypt(std::string) const;
-  std::string decrypt(std::string) const;
+  std::string encrypt(const std::string&);
+  std::string decrypt(const std::string&);
 
   // ---- debugging function, outputs all class member values
   void debug();
 
 private:
+  struct Codebook {
+    Codebook():
+      char_num({
+        {'A', 0}, {'B', 1}, {'C', 2}, {'D', 3}, {'E', 4},
+        {'F', 5}, {'G', 6}, {'H', 7}, {'I', 8}, {'J', 9},
+        {'K', 10}, {'L', 11}, {'M', 12}, {'N', 13}, {'O', 14},
+        {'P', 15}, {'Q', 16}, {'R', 17}, {'S', 18}, {'T', 19},
+        {'U', 20}, {'V', 21}, {'W', 22}, {'X', 23}, {'Y', 24}, {'Z', 25}
+        }),
+      num_char({
+        {0, 'A'}, {1, 'B'}, {2, 'C'}, {3, 'D'}, {4, 'E'},
+        {5, 'F'}, {6, 'G'}, {7, 'H'}, {8, 'I'}, {9, 'J'},
+        {10, 'K'}, {11, 'L'}, {12, 'M'}, {13, 'N'}, {14, 'O'},
+        {15, 'P'}, {16, 'Q'}, {17, 'R'}, {18, 'S'}, {19, 'T'},
+        {20, 'U'}, {21, 'V'}, {22, 'W'}, {23, 'X'}, {24, 'Y'}, {25, 'Z'}
+        }) {
+    }
+    bool check_char(std::unordered_map<char, BigInt> map, char key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
+    bool check_num(std::unordered_map<BigInt, char> map, int key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
+    BigInt char_to_num(const char& c) { try { return char_num.at(c); } catch (std::exception& ex) { throw ex; } }
+    char num_to_char(const int& x) { try { return num_char.at(x); } catch (std::exception& ex) { throw ex; } }
+    std::unordered_map<char, BigInt> char_num;
+    std::unordered_map<BigInt, char> num_char;
+  };
+
   BigInt p, q; // primes p and q
   BigInt n;    // modulo used with keys
   BigInt phi_n;
   BigInt e;    // public key
   BigInt d;    // private key
+
+  std::string encrypt_plaintext_block(const std::string&, struct Codebook&);
+  std::string decrypt_ciphertext_block(const std::string&, struct Codebook&);
   BigInt generateRandomPrime(const int) const;
   BigInt randomBigInt(const int) const;
   BigInt randomBigIntInRange(const BigInt, const BigInt) const;
   BigInt fastModExpBigInt(BigInt, BigInt, BigInt) const;
-  long long fastModExp(long long, long long, long long) const;
   BigInt euclidsExtended(BigInt, BigInt) const;
+  BigInt pow(const BigInt&, int) const;
+  long long fastModExp(long long, long long, long long) const;
   bool isPrimeMRT(const BigInt, const int) const;
   bool MRT(BigInt, const BigInt) const;
 };
@@ -51,13 +83,17 @@ private:
 // ---- debugging function, use it when needed. don't forget to delete
 inline
 void RSA::debug() {
-  std::cout << "p: " << p << std::endl;
-  std::cout << "q: " << q << std::endl;
-  std::cout << "n: " << getKeyModulo() << std::endl;
-  std::cout << "phi(n): " << phi_n << std::endl;
-  std::cout << "e (public key): " << getPublicKey() << std::endl;
-  std::cout << "d (private key): " << getPrivateKey() << std::endl;
-
+  std::cout << "********** RSA SYSTEM VALUES **********" << std::endl;
+  std::cout << "{"
+    << "'p': " << p << "," << std::endl
+    << "'q': " << q << "," << std::endl
+    << "'n': " << getKeyModulo() << "," << std::endl
+    << "'phi_n': " << phi_n << "," << std::endl
+    << "'e': " << getPublicKey() << "," << std::endl
+    << "'d': " << getPrivateKey() << "," << std::endl
+    << "}"
+    << std::endl;
+  std::cout << "***************************************" << std::endl;
 }
 
 
@@ -77,8 +113,13 @@ RSA::RSA(const int decimal_digits_count) {
 
   // calculate random primes p and q of lenght decimal_digits_count
   std::cout << "Initializing system primes..." << std::endl;
-  p = generateRandomPrime(decimal_digits_count);
-  q = generateRandomPrime(decimal_digits_count);
+  while (1) {
+    p = generateRandomPrime(decimal_digits_count);
+    q = generateRandomPrime(decimal_digits_count);
+    if (p != q) {
+      break;
+    }
+  }
   std::cout << "System primes initialized." << std::endl;
 
   n = BigInt((p * q));                                // calculate n
@@ -91,13 +132,13 @@ RSA::RSA(const int decimal_digits_count) {
       break;
     }
   }
-  if (e <= BigInt(1) || e >= phi_n) {       // sanity check- this condition should never be true
+  if (e <= BigInt(1) || e >= phi_n)         // sanity check- this condition should never be true
     throw std::logic_error("Calculated euler totient is of incorrect value. Try again");
-  }
+
   d = euclidsExtended(e, phi_n);            // calculate private key d
-  if (((e * d) % phi_n) != BigInt(1)) {     // another sanity check- this condition should never be true
+  if (((e * d) % phi_n) != BigInt(1))      // another sanity check- this condition should never be true
     throw std::logic_error("Variables produced violate requirements for RSA. Try again");
-  }
+
   std::cout << "System keys initialized." << std::endl;
 
   std::cout << "RSA crypto-system initialized." << std::endl;
@@ -126,30 +167,94 @@ BigInt RSA::getKeyModulo() const {
 
 // TODO
 inline
-std::string RSA::encrypt(std::string m) const {
-  BigInt plaintext(m);
-  BigInt encoded_plaintext = fastModExpBigInt(plaintext, getPublicKey(), getKeyModulo());
-  std::stringstream s;
-  s << encoded_plaintext;
-  std::string ciphertext = s.str();
-  return ciphertext;
+std::string RSA::encrypt(const std::string& s) {
+  Codebook codebook;
+  return encrypt_plaintext_block(s, codebook);
 }
 
 // TODO 
 inline
-std::string RSA::decrypt(std::string c) const {
-  BigInt ciphertext(c);
-  BigInt decoded_ciphertext = fastModExpBigInt(ciphertext, getPrivateKey(), getKeyModulo());
-  std::stringstream s;
-  s << decoded_ciphertext;
-  std::string plaintext = s.str();
-  return plaintext;
+std::string RSA::decrypt(const std::string& s) {
+  Codebook codebook;
+  return decrypt_ciphertext_block(s, codebook);
 }
 
 // ****************************************
 
 
 // ******************** Private methods ********************
+
+inline
+std::string RSA::encrypt_plaintext_block(const std::string& block, struct Codebook& codebook) {
+  BigInt trigraph = 0;
+  for (int i = 0; i < BLOCK_SIZE_PLAINTEXT_BYTES; i++) {
+    trigraph += pow(26, (BLOCK_SIZE_PLAINTEXT_BYTES - 1) - i) * codebook.char_to_num(char(block[i]));
+  }
+
+  BigInt ciphertext = fastModExpBigInt(trigraph, e, n);
+
+  BigInt num_0 = ciphertext / pow(26, 3);
+  ciphertext = ciphertext % pow(26, 3);
+
+  BigInt num_1 = ciphertext / pow(26, 2);
+  ciphertext = ciphertext % pow(26, 2);
+
+  BigInt num_2 = ciphertext / 26;
+  BigInt num_3 = ciphertext % 26;
+
+  const BigInt nums[BLOCK_SIZE_CIPHERTEXT_BYTES] = { num_0,num_1,num_2,num_3 };
+  std::string quadragraph = "";
+  
+
+  for (int i = 0; i < BLOCK_SIZE_CIPHERTEXT_BYTES; i++) {
+    if (!codebook.check_num(codebook.num_char, nums[i].longValue())) {
+      int ascii_num = (nums[i] % (25)) + 25;
+      char new_char = char(ascii_num);
+      std::cout << nums[i].longValue() << "not in codebook. using character " << new_char << " with key " << ascii_num << std::endl;
+      codebook.char_num.insert(std::make_pair(new_char,nums[i].longValue()));
+      std::cout << "value inserted. testing... => ";
+      std::cout << codebook.char_to_num(new_char) << std::endl;
+      quadragraph += char(ascii_num);
+      continue;
+    }
+    quadragraph += char(nums[i].longValue() + 65);
+  }
+
+  codebook.char_num.insert({'?',69});
+
+  return quadragraph;
+}
+
+inline
+std::string RSA::decrypt_ciphertext_block(const std::string& block, struct Codebook& codebook) {
+
+  std::cout << "testing: " << codebook.char_to_num('?') << std::endl;
+
+  BigInt ciphertext(0);
+  for (int i = 0; i < BLOCK_SIZE_CIPHERTEXT_BYTES; i++) {
+    std::cout << "block byte: " << block[i] << std::endl;
+    std::cout << block[i] << "->" << codebook.char_to_num(block[i]) << std::endl;
+    ciphertext += BigInt(codebook.char_to_num(char(block[i]))) * pow(26, (BLOCK_SIZE_CIPHERTEXT_BYTES - 1 - i));
+  }
+
+  std::cout << ciphertext << std::endl;
+
+  BigInt trigraph = fastModExpBigInt(ciphertext, d, n);
+
+  BigInt num_0 = trigraph / pow(26, 2);
+
+  trigraph = trigraph % pow(26, 2);
+
+  BigInt num_1 = trigraph / 26;
+  BigInt num_2 = trigraph % 26;
+
+  std::string plaintext_string = "";
+  plaintext_string += codebook.num_to_char(int(num_0.longValue()));
+  plaintext_string += codebook.num_to_char(int(num_1.longValue()));
+  plaintext_string += codebook.num_to_char(int(num_2.longValue())); 
+
+  return plaintext_string;
+}
 
 // info: Get an n-digit random prime number that has been verified via the miller-rabin method.
 // params: int specifying how many digits prime should be
@@ -287,6 +392,30 @@ BigInt RSA::randomBigIntInRange(const BigInt low, const BigInt high) const {
   BigInt mod_r = rand_diff_range % diff;
   BigInt rand_val = low + mod_r;
   return rand_val;
+}
+
+inline
+BigInt RSA::pow(const BigInt& base, int exp) const {
+  if (exp < 0) {
+    if (base == 0)
+      throw std::logic_error("Cannot divide by zero");
+    return base.abs() == 1 ? base : 0;
+  }
+  if (exp == 0) {
+    if (base == 0)
+      throw std::logic_error("Zero cannot be raised to zero");
+    return 1;
+  }
+
+  BigInt result = base, result_odd = 1;
+  while (exp > 1) {
+    if (exp % 2)
+      result_odd *= result;
+    result *= result;
+    exp /= 2;
+  }
+
+  return result * result_odd;
 }
 
 // info: implements the fast modular exponentiation algorithm in project requirements for BigInts
