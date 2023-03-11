@@ -7,15 +7,22 @@ void basic_test(RSA);
 
 int main() {
   // specify how many digits our RSA primes should be
-  int prime_digits = 100;
+  int prime_digits = 25;
 
   // initialize the RSA crypto-system
   RSA rsa_0(prime_digits);
 
-  // check initialized class values
-  rsa_0.debug();
+  // // check initialized class values
+  // rsa_0.debug();
 
-  basic_test(rsa_0);
+  // // basic test 
+  // basic_test(rsa_0);
+
+  const std::string file_plaintext = "plaintext_0.txt";
+  const std::string file_ciphertext = "ciphertext_0.txt";
+  const std::string file_decrypted_ciphertext = "decrypted_0.txt";
+  rsa_0.file_encrypt(file_plaintext,file_ciphertext);
+  rsa_0.file_decrypt(file_ciphertext,file_decrypted_ciphertext);
 
   return 0;
 }

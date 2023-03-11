@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <sstream>
 #include <map>
+#include <fstream>
 
 #include "BigInt.cpp"
 
@@ -42,7 +43,7 @@ private:
     std::map<BigInt, char> num_char;
     long unsigned int base;
     Codebook():
-      NULL_CHAR {'-'},
+      NULL_CHAR{ '-' },
       char_num({
         {'A', 0}, {'B', 1}, {'C', 2}, {'D', 3}, {'E', 4},
         {'F', 5}, {'G', 6}, {'H', 7}, {'I', 8}, {'J', 9},
@@ -55,9 +56,9 @@ private:
         {5, 'F'}, {6, 'G'}, {7, 'H'}, {8, 'I'}, {9, 'J'},
         {10, 'K'}, {11, 'L'}, {12, 'M'}, {13, 'N'}, {14, 'O'},
         {15, 'P'}, {16, 'Q'}, {17, 'R'}, {18, 'S'}, {19, 'T'},
-        {20, 'U'}, {21, 'V'}, {22, 'W'}, {23, 'X'}, {24, 'Y'}, {25, 'Z'}, 
+        {20, 'U'}, {21, 'V'}, {22, 'W'}, {23, 'X'}, {24, 'Y'}, {25, 'Z'},
         }),
-      base {27} {
+        base{ 27 } {
     }
     bool check_char(std::map<char, BigInt> map, char key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
     bool check_num(std::map<BigInt, char> map, BigInt key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
@@ -71,7 +72,7 @@ private:
   BigInt phi_n;
   BigInt e;    // public key
   BigInt d;    // private key
-  
+
   BigInt getPrivateKey() const;
   std::string encrypt(const std::string&);
   std::string decrypt(const std::string&);
@@ -163,16 +164,98 @@ BigInt RSA::getPublicKey() const {
   return e;
 }
 
-// info: returns the private key for the RSA crypto-system
-inline
-BigInt RSA::getPrivateKey() const {
-  return d;
-}
-
 // info: returns the modulo n to use with the public and private keys
 inline
 BigInt RSA::getKeyModulo() const {
   return n;
+}
+
+
+inline
+void RSA::file_encrypt(const std::string& fname_in, const std::string& fname_out) {
+  std::ifstream ifile(fname_in);
+  if (!ifile) {
+    throw std::range_error("Input file could not be opened.");
+  }
+
+  std::string line;
+  std::string plaintext;
+  getline(ifile, line);
+  while (std::getline(ifile, line)) {
+    plaintext += line;
+  }
+  std::getline(ifile, line);
+  plaintext += line;
+  ifile.close();
+
+  std::ofstream ofile(fname_out);
+  if (!ofile) {
+    throw std::range_error("Output file could not be opened.");
+  }
+
+  std::string ciphertext = "";
+  std::string::const_iterator iter = plaintext.begin();
+  while (iter != plaintext.end()) {
+    std::string plaintext_block;
+    for (int i = 0; i < 3; i++) {
+      if (iter == plaintext.end()) {
+        break;
+      }
+      plaintext_block += *iter;
+      iter++;
+    }
+    while (plaintext_block.size() < 3) {
+      plaintext_block += codebook.NULL_CHAR;
+    }
+    std::string ciphertext_block = encrypt(plaintext_block);
+    ciphertext += ciphertext_block;
+  }
+  ofile << ciphertext;
+
+  ofile.close();
+}
+
+inline
+void RSA::file_decrypt(const std::string& fname_in, const std::string& fname_out) {
+  std::ifstream ifile(fname_in);
+  if (!ifile) {
+    throw std::range_error("Input file could not be opened.");
+  }
+  std::string line;
+  std::string ciphertext;
+  getline(ifile, line);
+  while (std::getline(ifile, line)) {
+    ciphertext += line;
+  }
+  std::getline(ifile, line);
+  ciphertext += line;
+  ifile.close();
+
+  std::ofstream ofile(fname_out);
+  if (!ofile) {
+    throw std::range_error("Output file could not be opened.");
+  }
+
+  std::string plaintext = "";
+  std::string::const_iterator iter = ciphertext.begin();
+  while (iter != ciphertext.end()) {
+    std::string ciphertext_block;
+    for (int i = 0; i < 4; i++) {
+      if (iter == plaintext.end()) {
+        break;
+      }
+      ciphertext_block += *iter;
+      iter++;
+    }
+    while (ciphertext_block.size() < 4 || ciphertext_block.size() > 4 ) {
+      throw std::logic_error("Ciphertext block of invalid size");
+    }
+    std::string plaintext_block = decrypt(ciphertext_block);
+    plaintext += plaintext_block;
+  }
+  ofile << plaintext;
+
+  ofile.close();
 }
 
 // TODO
@@ -206,16 +289,22 @@ std::string RSA::temp_decrypt(const std::string& s) {
 
 // ******************** Private methods ********************
 
+// info: returns the private key for the RSA crypto-system
+inline
+BigInt RSA::getPrivateKey() const {
+  return d;
+}
+
 inline
 std::string RSA::encrypt_plaintext_block(const std::string& block, Codebook* codebook) {
-  
+
   if (block.size() < BLOCK_SIZE_PLAINTEXT_BYTES || block.size() > BLOCK_SIZE_PLAINTEXT_BYTES) {
     throw std::range_error("Plainext block is of incorrect size.");
   }
 
   BigInt trigraph = 0;
   for (int i = 0; i < BLOCK_SIZE_PLAINTEXT_BYTES; i++) {
-    if (!codebook->check_char(codebook->char_num,toupper(char(block[i])))) {
+    if (!codebook->check_char(codebook->char_num, toupper(char(block[i])))) {
       throw std::range_error("Unreadable plaintext character detected. Ensure plaintext consists of ONLY LETTERS.");
     }
     trigraph += pow(codebook->base, (BLOCK_SIZE_PLAINTEXT_BYTES - 1) - i) * codebook->char_to_num(toupper((char(block[i]))));
@@ -241,7 +330,7 @@ std::string RSA::encrypt_plaintext_block(const std::string& block, Codebook* cod
     if (!codebook->check_num(codebook->num_char, codes[i])) {
       char new_char = char((rand() % (codebook->base - 1)) + 97);
       int counter = 0;
-      while (codebook->check_char(codebook->char_num,new_char)) {
+      while (codebook->check_char(codebook->char_num, new_char)) {
         if (counter >= 100) {
           throw std::logic_error("Failure to assign new key value for trigraph code.");
         }
@@ -281,7 +370,7 @@ std::string RSA::decrypt_ciphertext_block(const std::string& block, Codebook* co
   BigInt nums[BLOCK_SIZE_PLAINTEXT_BYTES] = { num_0, num_1, num_2 };
   char codes[BLOCK_SIZE_PLAINTEXT_BYTES];
 
-  for (int i = 0; i<BLOCK_SIZE_PLAINTEXT_BYTES; i++) {
+  for (int i = 0; i < BLOCK_SIZE_PLAINTEXT_BYTES; i++) {
     if (nums[i] == codebook->char_to_num(codebook->NULL_CHAR)) {
       codes[i] = ' ';
       continue;
@@ -290,7 +379,7 @@ std::string RSA::decrypt_ciphertext_block(const std::string& block, Codebook* co
   }
 
   std::string plaintext_string = "";
-  for (int i=0; i<BLOCK_SIZE_PLAINTEXT_BYTES; i++) {
+  for (int i = 0; i < BLOCK_SIZE_PLAINTEXT_BYTES; i++) {
     plaintext_string += codes[i];
   }
 
