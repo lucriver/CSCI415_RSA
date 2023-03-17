@@ -70,7 +70,7 @@ private:
         {45, 't'}, {46, 'u'}, {47, 'v'}, {48, 'w'}, {49, 'x'},
         {50, 'y'}, {51, 'z'}
         }),
-        base{ 52 } {
+        base{ num_char.size() } {
     }
     bool check_char(std::map<char, BigInt> map, char key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
     bool check_num(std::map<BigInt, char> map, BigInt key) { if (map.find(key) == map.end()) { return false; } else { return true; } };
@@ -156,7 +156,8 @@ RSA::RSA(const int decimal_digits_count) {
 inline
 RSA::~RSA() {}
 
-
+// info: takes a string that is the filename containing plaintext and another string
+///      that is a filename to output the encrypted plaintext to.
 inline
 void RSA::file_encrypt(const std::string& fname_in, const std::string& fname_out) {
   std::ifstream ifile(fname_in);
@@ -203,6 +204,8 @@ void RSA::file_encrypt(const std::string& fname_in, const std::string& fname_out
   ofile.close();
 }
 
+// info: takes a string that is a filename containing encrypted data (fname_int) (file produced by file_encrypt function)
+//       and outputs the decrypted file contents to fname_out.
 inline
 void RSA::file_decrypt(const std::string& fname_in, const std::string& fname_out) {
   std::ifstream ifile(fname_in);
@@ -265,6 +268,9 @@ BigInt RSA::getKeyModulo() const {
   return n;
 }
 
+
+// info: takes a two-byte (2-chars) plaintext string and 
+//       returns a BLOCK_SIZE_CIPHERTEXT_BYTES length encrypted string
 inline
 std::string RSA::encrypt(const std::string& block) {
   Codebook* cbook_ptr;
@@ -283,9 +289,7 @@ std::string RSA::encrypt(const std::string& block) {
     trigraph += pow(cbook_ptr->base, (block.size() - 1) - i) * cbook_ptr->char_to_num(toupper((char(block[i]))));
   }
 
-
   BigInt ciphertext = fastModExpBigInt(trigraph, e, n);
-
 
   std::string quadragraph = "";
   for (long unsigned int i = 0; i < BLOCK_SIZE_CIPHERTEXT_BYTES - 2; i++) {
@@ -296,11 +300,10 @@ std::string RSA::encrypt(const std::string& block) {
   quadragraph += cbook_ptr->num_to_char((ciphertext / cbook_ptr->base));
   quadragraph += cbook_ptr->num_to_char((ciphertext % cbook_ptr->base));
 
-
   return quadragraph;
 }
 
-
+// info: takes a returned by the encrypt function and decrypts it
 inline
 std::string RSA::decrypt(const std::string& block) {
   Codebook* cbook_ptr;
@@ -575,11 +578,13 @@ void RSA::debug() {
   std::cout << "***************************************" << std::endl;
 }
 
+// ---- debugging for testing will be deleted eventually 
 inline
 std::string RSA::temp_encrypt(const std::string& s) {
   return encrypt(s);
 }
 
+// ---- debugging for testing will be deleted eventually 
 inline
 std::string RSA::temp_decrypt(const std::string& s) {
   return decrypt(s);
