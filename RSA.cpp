@@ -26,14 +26,16 @@ public:
   RSA(const int);
   ~RSA();
 
+  // encryption & decryption methods
+  std::string encrypt(const std::string&);    // encrypt plaintext block
+  std::string decrypt(const std::string&);    // decrypt ciphertext block
+
   // encrypt & decrypt files
   void file_encrypt(const std::string&, const std::string&);
   void file_decrypt(const std::string&, const std::string&);
 
   // debugging function (output rsa variables)
   void debug();
-  std::string temp_encrypt(const std::string&);
-  std::string temp_decrypt(const std::string&);
 
 private:
   // codebook used for enciphering & deciphering. defines mapping for chars to integers and vice-versa.
@@ -89,10 +91,6 @@ private:
   BigInt getPublicKey() const;
   BigInt getKeyModulo() const;
   BigInt getPrivateKey() const;
-
-  // encryption & decryption methods
-  std::string encrypt(const std::string&);    // encrypt plaintext block
-  std::string decrypt(const std::string&);    // decrypt ciphertext block
 
   // RSA class initialization methods
   BigInt generateRandomPrime(const int) const;                    // generate random prime number (used to get p and q)
@@ -246,29 +244,6 @@ void RSA::file_decrypt(const std::string& fname_in, const std::string& fname_out
   ofile.close();
 }
 
-// ****************************************
-
-// ******************** Private methods ********************
-
-// info: returns the private key for the RSA crypto-system
-inline
-BigInt RSA::getPrivateKey() const {
-  return d;
-}
-
-// info: returns the public key for the RSA crypto-system
-inline
-BigInt RSA::getPublicKey() const {
-  return e;
-}
-
-// info: returns the modulo n to use with the public and private keys
-inline
-BigInt RSA::getKeyModulo() const {
-  return n;
-}
-
-
 // info: takes a two-byte (2-chars) plaintext string and 
 //       returns a BLOCK_SIZE_CIPHERTEXT_BYTES length encrypted string
 inline
@@ -334,6 +309,29 @@ std::string RSA::decrypt(const std::string& block) {
 
   return plaintext_string;
 }
+
+// ****************************************
+
+// ******************** Private methods ********************
+
+// info: returns the private key for the RSA crypto-system
+inline
+BigInt RSA::getPrivateKey() const {
+  return d;
+}
+
+// info: returns the public key for the RSA crypto-system
+inline
+BigInt RSA::getPublicKey() const {
+  return e;
+}
+
+// info: returns the modulo n to use with the public and private keys
+inline
+BigInt RSA::getKeyModulo() const {
+  return n;
+}
+
 
 // --------------- Class initialization methods ---------------
 
@@ -576,16 +574,4 @@ void RSA::debug() {
     << "}"
     << std::endl;
   std::cout << "***************************************" << std::endl;
-}
-
-// ---- debugging for testing will be deleted eventually 
-inline
-std::string RSA::temp_encrypt(const std::string& s) {
-  return encrypt(s);
-}
-
-// ---- debugging for testing will be deleted eventually 
-inline
-std::string RSA::temp_decrypt(const std::string& s) {
-  return decrypt(s);
 }
