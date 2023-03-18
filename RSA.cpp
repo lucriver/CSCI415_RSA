@@ -17,7 +17,7 @@
 //         the prime numbers of the RSA system should be.
 class RSA {
   static const int MIN_DIGITS = 3;                    // Minimum number of digits for RSA primes
-  static const int MAX_DIGITS = 200;                  // Max number of digits for RSA primes
+  static const int MAX_DIGITS = 300;                  // Max number of digits for RSA primes
   static const int BLOCK_SIZE_PLAINTEXT_BYTES = 3;    // # of bytes in plaintext blocks
   static const int BLOCK_SIZE_CIPHERTEXT_BYTES = 32;   // # of bytes in ciphertext blocks
 
@@ -158,22 +158,26 @@ RSA::~RSA() {}
 ///      that is a filename to output the encrypted plaintext to.
 inline
 void RSA::file_encrypt(const std::string& fname_in, const std::string& fname_out) {
+  // if file cannot be found
   std::ifstream ifile(fname_in);
   if (!ifile) {
     throw std::range_error("Input file could not be opened.");
   }
 
+  // read file contents
   std::string line, plaintext;
   while (std::getline(ifile, line)) {
     plaintext += line;
   }
   ifile.close();
 
+  // if file cannot be found
   std::ofstream ofile(fname_out);
   if (!ofile) {
     throw std::range_error("Output file could not be opened.");
   }
 
+  // start encrypting plaintext block by block
   std::string ciphertext = "";
   std::string::const_iterator iter = plaintext.begin();
   while (iter != plaintext.end()) {
@@ -185,19 +189,20 @@ void RSA::file_encrypt(const std::string& fname_in, const std::string& fname_out
       plaintext_block += *iter;
       iter++;
     }
+    // if plaintext is not big enough, pad it to fit
     if (plaintext_block.size() < BLOCK_SIZE_PLAINTEXT_BYTES) {
       int diff = BLOCK_SIZE_PLAINTEXT_BYTES - plaintext_block.size();
       std::string temp = "";
       for (int i = 0; i < diff; i++) {
-        temp += "-";
+        temp += "-"; // padding character
       }
       temp += plaintext_block;
       plaintext_block = temp;
     }
-    std::string ciphertext_block = encrypt(plaintext_block);
+    std::string ciphertext_block = encrypt(plaintext_block); // encrypt the block
     ciphertext += ciphertext_block;
   }
-  ofile << ciphertext;
+  ofile << ciphertext; // output the ciphertext block to the file
 
   ofile.close();
 }
@@ -206,10 +211,13 @@ void RSA::file_encrypt(const std::string& fname_in, const std::string& fname_out
 //       and outputs the decrypted file contents to fname_out.
 inline
 void RSA::file_decrypt(const std::string& fname_in, const std::string& fname_out) {
+  // if file cannot be found
   std::ifstream ifile(fname_in);
   if (!ifile) {
     throw std::range_error("Input file could not be opened.");
   }
+
+  // read ciphertext file contents
   std::string line;
   std::string ciphertext;
   while (std::getline(ifile, line)) {
@@ -217,11 +225,13 @@ void RSA::file_decrypt(const std::string& fname_in, const std::string& fname_out
   }
   ifile.close();
 
+  // if file cannot be found
   std::ofstream ofile(fname_out);
   if (!ofile) {
     throw std::range_error("Output file could not be opened.");
   }
 
+  // start decrypted ciphertext block by block
   std::string plaintext = "";
   std::string::const_iterator iter = ciphertext.begin();
   while (iter != ciphertext.end()) {
@@ -233,13 +243,14 @@ void RSA::file_decrypt(const std::string& fname_in, const std::string& fname_out
       ciphertext_block += *iter;
       iter++;
     }
+    // sanity check- if somehow the ciphertext is not of proper block size.
     while (ciphertext_block.size() < BLOCK_SIZE_CIPHERTEXT_BYTES || ciphertext_block.size() > BLOCK_SIZE_CIPHERTEXT_BYTES ) {
       throw std::logic_error("Ciphertext block of invalid size");
     }
-    std::string plaintext_block = decrypt(ciphertext_block);
+    std::string plaintext_block = decrypt(ciphertext_block); // decrypt the ciphertext block
     plaintext += plaintext_block;
   }
-  ofile << plaintext;
+  ofile << plaintext; // output decrypted ciphertext
 
   ofile.close();
 }
@@ -257,6 +268,7 @@ std::string RSA::encrypt(const std::string& block) {
 
   BigInt trigraph = 0;
 
+  // construct the trigraph
   for (long unsigned int i = 0; i < block.size(); i++) {
     if (!cbook_ptr->check_char(cbook_ptr->char_num, toupper(char(block[i])))) {
       throw std::range_error("Unreadable plaintext character detected. Ensure plaintext consists of ONLY LETTERS.");
@@ -264,8 +276,10 @@ std::string RSA::encrypt(const std::string& block) {
     trigraph += pow(cbook_ptr->base, (block.size() - 1) - i) * cbook_ptr->char_to_num(toupper((char(block[i]))));
   }
 
+  // calculate enciphered trigraph (RSA encryption)
   BigInt ciphertext = fastModExpBigInt(trigraph, e, n);
 
+  // construct quadragraph from enciphered trigraph
   std::string quadragraph = "";
   for (long unsigned int i = 0; i < BLOCK_SIZE_CIPHERTEXT_BYTES - 2; i++) {
     BigInt index = ciphertext / pow(cbook_ptr->base,(BLOCK_SIZE_CIPHERTEXT_BYTES-1)-i);
@@ -275,7 +289,7 @@ std::string RSA::encrypt(const std::string& block) {
   quadragraph += cbook_ptr->num_to_char((ciphertext / cbook_ptr->base));
   quadragraph += cbook_ptr->num_to_char((ciphertext % cbook_ptr->base));
 
-  return quadragraph;
+  return quadragraph; // return the ciphertext
 }
 
 // info: takes a returned by the encrypt function and decrypts it
@@ -284,13 +298,16 @@ std::string RSA::decrypt(const std::string& block) {
   Codebook* cbook_ptr;
   cbook_ptr = &codebook;
 
+  // construct the enciphered trigraph
   BigInt ciphertext(0);
   for (long unsigned int i = 0; i < block.size(); i++) {
     ciphertext += BigInt(cbook_ptr->char_to_num(char(block[i]))) * pow(cbook_ptr->base, (BLOCK_SIZE_CIPHERTEXT_BYTES - 1 - i));
   }
 
+  // decrypt enciphered trigraph to reveal trigraph (RSA decryption)
   BigInt trigraph = fastModExpBigInt(ciphertext, d, n);
 
+  // convert the trigraph to plaintext
   BigInt num_0 = trigraph / pow(cbook_ptr->base, 2);
   BigInt num_1 = (trigraph % pow(cbook_ptr->base,2)) / cbook_ptr->base;
   BigInt num_2 = (trigraph % pow(cbook_ptr->base,2)) % cbook_ptr->base;
@@ -307,7 +324,7 @@ std::string RSA::decrypt(const std::string& block) {
     plaintext_string += codes[i];
   }
 
-  return plaintext_string;
+  return plaintext_string; // return the plaintext
 }
 
 // ****************************************

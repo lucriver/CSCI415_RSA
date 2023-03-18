@@ -3,15 +3,16 @@
 
 #include "RSA.cpp"
 
-void basic_test(RSA);
+const int MAX_PRIME_DIGITS = 300;
+const int MIN_PRIME_DIGITS = 3;
 
 int main() {
   // specify how many digits our RSA primes should be
   int prime_digits = 0;
   std::cout << "Enter number indicating # of digits for RSA primes > ";
   std::cin >> prime_digits;
-  while (prime_digits < 3 || prime_digits >= 200) {
-    std::cout << "Invalid number eneted. Try again > ";
+  while (MIN_PRIME_DIGITS < 3 || prime_digits > MAX_PRIME_DIGITS) {
+    std::cout << "Invalid number entered. Try again > ";
     std::cin >> prime_digits;
   }
 
@@ -33,9 +34,9 @@ int main() {
         std::cin >> plaintext;
         std::cout << "Plaintext: " << plaintext << std::endl;
         std::string ciphertext = rsa_0.encrypt(plaintext);
-        std::cout << "Encrypted plaintext: " << ciphertext << std::endl;
+        std::cout << "Ciphertext: " << ciphertext << std::endl;
         std::string decrypted = rsa_0.decrypt(ciphertext);
-        std::cout << "Decrypted plaintext: " << decrypted << std::endl;
+        std::cout << "Decrypted ciphertext: " << decrypted << std::endl;
         continue;
       }
       case (2) : {
@@ -58,6 +59,8 @@ int main() {
       }
       default : {
         std::cout << "Invalid option chosen.\n";
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         continue;
       }
     }
